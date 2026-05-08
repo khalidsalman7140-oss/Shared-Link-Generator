@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { eq, and } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { db, conversations as conversationsTable, messages as messagesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
@@ -14,6 +15,21 @@ import {
 import { generateImage } from "@workspace/integrations-gemini-ai/image";
 
 const router: IRouter = Router();
+
+interface AuthedRequest extends Request {
+  userId: string;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized — please sign in" });
+    return;
+  }
+  (req as AuthedRequest).userId = userId;
+  next();
+}
 
 const SYSTEM_PROMPT = `أنت وكيل ذكي يمثل خالد سلمان، مبدع يمني متخصص في الذكاء الاصطناعي والبرمجة والتصميم.
 مهمتك: التواصل مع العملاء، عرض الخدمات، وتقديم استشارات احترافية.
@@ -32,21 +48,25 @@ const SYSTEM_PROMPT = `أنت وكيل ذكي يمثل خالد سلمان، م�
 
 أسلوب التواصل:
 - كن احترافياً وودوداً
-- أجب باللغة التي يستخدمها العميل (عربي أو إنجليزي)
+- أجب دائماً باللغة التي يستخدمها العميل (عربي، إنجليزي، فرنسي، تركي، إسباني، أو أي لغة أخرى)
 - إذا سأل العميل عن خدمة معينة، قدم تفاصيل واضحة واسأله عن متطلباته
 - إذا أرسل العميل صورة، حللها واقترح خدمات مناسبة (مثل تحسين الشعار أو اقتراح ديكور)
 - عند الاتفاق على خدمة، أخبر العميل بكيفية التواصل المباشر مع خالد
-- قدم تقديرات أولية للأسعار والوقت عند الطلب`;
+- قدم تقديرات أولية للأسعار والوقت عند الطلب
+- الحقوق محفوظة لخالد سلمان © 2025`;
 
-router.get("/gemini/conversations", async (req, res): Promise<void> => {
+router.get("/gemini/conversations", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const conversations = await db
     .select()
     .from(conversationsTable)
+    .where(eq(conversationsTable.userId, userId))
     .orderBy(conversationsTable.createdAt);
   res.json(conversations);
 });
 
-router.post("/gemini/conversations", async (req, res): Promise<void> => {
+router.post("/gemini/conversations", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const parsed = CreateGeminiConversationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -54,12 +74,13 @@ router.post("/gemini/conversations", async (req, res): Promise<void> => {
   }
   const [conversation] = await db
     .insert(conversationsTable)
-    .values({ title: parsed.data.title })
+    .values({ title: parsed.data.title, userId })
     .returning();
   res.status(201).json(conversation);
 });
 
-router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
+router.get("/gemini/conversations/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = GetGeminiConversationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -68,7 +89,7 @@ router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
   const [conversation] = await db
     .select()
     .from(conversationsTable)
-    .where(eq(conversationsTable.id, params.data.id));
+    .where(and(eq(conversationsTable.id, params.data.id), eq(conversationsTable.userId, userId)));
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
     return;
@@ -81,7 +102,8 @@ router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
   res.json({ ...conversation, messages });
 });
 
-router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
+router.delete("/gemini/conversations/:id", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = DeleteGeminiConversationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -89,7 +111,7 @@ router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
   }
   const [deleted] = await db
     .delete(conversationsTable)
-    .where(eq(conversationsTable.id, params.data.id))
+    .where(and(eq(conversationsTable.id, params.data.id), eq(conversationsTable.userId, userId)))
     .returning();
   if (!deleted) {
     res.status(404).json({ error: "Conversation not found" });
@@ -98,10 +120,19 @@ router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
+router.get("/gemini/conversations/:id/messages", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = ListGeminiMessagesParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [conversation] = await db
+    .select()
+    .from(conversationsTable)
+    .where(and(eq(conversationsTable.id, params.data.id), eq(conversationsTable.userId, userId)));
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
     return;
   }
   const messages = await db
@@ -112,7 +143,8 @@ router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void>
   res.json(messages);
 });
 
-router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
+router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
   const params = SendGeminiMessageParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -130,30 +162,26 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   const [conversation] = await db
     .select()
     .from(conversationsTable)
-    .where(eq(conversationsTable.id, conversationId));
+    .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
     return;
   }
 
-  // Save user message
   await db.insert(messagesTable).values({
     conversationId,
     role: "user",
     content: userContent,
   });
 
-  // Load conversation history
   const history = await db
     .select()
     .from(messagesTable)
     .where(eq(messagesTable.conversationId, conversationId))
     .orderBy(messagesTable.createdAt);
 
-  // Build Gemini contents — handle image payloads
   const geminiContents = history.map((m) => {
     const role = m.role === "assistant" ? "model" : "user";
-    // Check for image data in content: format is "text [IMAGE:base64data mimeType]"
     const imageMatch = m.content.match(/\[IMAGE:([^:]+):([^\]]+)\]/);
     if (imageMatch && m.role === "user") {
       const textPart = m.content.replace(/\[IMAGE:[^\]]+\]/, "").trim();
@@ -167,7 +195,6 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     return { role, parts: [{ text: m.content }] };
   });
 
-  // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -192,7 +219,6 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
       }
     }
 
-    // Save assistant message
     await db.insert(messagesTable).values({
       conversationId,
       role: "assistant",
@@ -208,7 +234,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   res.end();
 });
 
-router.post("/gemini/generate-image", async (req, res): Promise<void> => {
+router.post("/gemini/generate-image", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const parsed = GenerateGeminiImageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

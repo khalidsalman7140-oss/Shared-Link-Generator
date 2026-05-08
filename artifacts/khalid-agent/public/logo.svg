@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="58" fill="#0A0B14" stroke="#7C3AED" stroke-width="2"/>
+  <circle cx="60" cy="60" r="48" fill="rgba(124,58,237,0.08)"/>
+  <text x="60" y="72" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#7C3AED" text-anchor="middle" letter-spacing="-1">KS</text>
+  <circle cx="60" cy="60" r="57" fill="none" stroke="rgba(124,58,237,0.3)" stroke-width="1"/>
+</svg>
