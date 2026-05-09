@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/app-layout";
 import { I18nProvider } from "@/lib/i18n";
+import { InstallPWA } from "@/components/InstallPWA";
 import Chat from "@/pages/chat";
 import Services from "@/pages/services";
 import Landing from "@/pages/landing";
@@ -184,6 +185,7 @@ function AppRouter() {
               <Route component={NotFound} />
             </Switch>
             <Toaster />
+            <InstallPWA />
           </TooltipProvider>
         </I18nProvider>
       </QueryClientProvider>
