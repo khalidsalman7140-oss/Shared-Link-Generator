@@ -23,7 +23,9 @@ import {
   Copy,
   Check,
   Wand2,
+  Crown,
 } from "lucide-react";
+import { Link } from "wouter";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -360,6 +362,20 @@ export default function Chat() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const [limitReached, setLimitReached] = useState(false);
+  const [usageInfo, setUsageInfo] = useState<{ used: number; limit: number | null; plan: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/gemini/usage")
+      .then((r) => r.json())
+      .then((d) => {
+        setUsageInfo(d);
+        if (d.plan === "free" && d.limit !== null && d.used >= d.limit) setLimitReached(true);
+        else setLimitReached(false);
+      })
+      .catch(() => {});
+  }, [localMessages]);
+
   const sendMessage = useCallback(async (targetConvId: number, content: string) => {
     setIsStreaming(true);
     setStreamingContent("");
@@ -377,6 +393,18 @@ export default function Chat() {
           body: JSON.stringify({ content }),
         },
       );
+
+      if (response.status === 429) {
+        const data = await response.json();
+        setLimitReached(true);
+        setUsageInfo({ used: data.used, limit: data.limit, plan: data.plan });
+        setLocalMessages((prev) => [...prev, {
+          id: Date.now(),
+          role: "assistant",
+          content: `⚠️ ${isRTL ? `لقد استنفدت حد الرسائل اليومي (${data.limit} رسائل). قم بترقية اشتراكك للحصول على رسائل غير محدودة.` : `You've reached your daily limit (${data.limit} messages). Upgrade your plan for unlimited messages.`}`,
+        }]);
+        return;
+      }
 
       if (!response.ok) throw new Error("Failed to send message");
       if (!response.body) throw new Error("No response body");
@@ -652,6 +680,35 @@ export default function Chat() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+          )}
+
+          {limitReached && (
+            <div className="mb-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30 flex items-center justify-between gap-3">
+              <p className="text-sm text-destructive">
+                {isRTL
+                  ? `استنفدت الحد اليومي (${usageInfo?.limit ?? 5} رسائل). جدِّد غداً أو اشترك للحصول على رسائل غير محدودة.`
+                  : `Daily limit reached (${usageInfo?.limit ?? 5} messages). Renews tomorrow or upgrade for unlimited.`}
+              </p>
+              <Link href="/pricing">
+                <Button size="sm" className="shrink-0 gap-1 text-xs shadow-lg shadow-primary/30">
+                  <Crown className="w-3.5 h-3.5" />
+                  {isRTL ? "ترقية" : "Upgrade"}
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {!limitReached && usageInfo?.plan === "free" && usageInfo.limit !== null && (
+            <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>
+                {isRTL
+                  ? `${usageInfo.used} من ${usageInfo.limit} رسائل مجانية اليوم`
+                  : `${usageInfo.used} of ${usageInfo.limit} free messages today`}
+              </span>
+              <Link href="/pricing" className="text-primary hover:text-primary/80 transition-colors">
+                {isRTL ? "ترقية للحصول على رسائل غير محدودة ←" : "Upgrade for unlimited →"}
+              </Link>
             </div>
           )}
 
