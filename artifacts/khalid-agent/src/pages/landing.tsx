@@ -12,6 +12,8 @@ import {
   Zap,
   Crown,
   Globe,
+  Monitor,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
@@ -27,19 +29,37 @@ export default function Landing() {
       icon: Palette,
       title: isRTL ? "التصميم والإبداع" : "Design & Creativity",
       desc: isRTL
-        ? "هوية بصرية، صور بالذكاء الاصطناعي، ديكور"
-        : "Visual identity, AI images, decor",
+        ? "هوية بصرية، صور بالذكاء الاصطناعي، ديكور داخلي وخارجي"
+        : "Visual identity, AI images, interior & exterior decor",
       color: "text-purple-400",
       bg: "bg-purple-500/10",
+    },
+    {
+      icon: Monitor,
+      title: isRTL ? "تصميم وبناء المواقع" : "Website Design & Building",
+      desc: isRTL
+        ? "مواقع ويب كاملة ومتجاوبة بأحدث التقنيات"
+        : "Full responsive websites with modern technologies",
+      color: "text-cyan-400",
+      bg: "bg-cyan-500/10",
     },
     {
       icon: Video,
       title: isRTL ? "المحتوى الرقمي" : "Digital Content",
       desc: isRTL
-        ? "فيديوهات، كتب إلكترونية، عروض تقديمية"
-        : "Videos, eBooks, presentations",
+        ? "فيديوهات، كتب إلكترونية، عروض تقديمية احترافية"
+        : "Videos, eBooks, professional presentations",
       color: "text-blue-400",
       bg: "bg-blue-500/10",
+    },
+    {
+      icon: ImageIcon,
+      title: isRTL ? "توليد الصور بالذكاء الاصطناعي" : "AI Image Generation",
+      desc: isRTL
+        ? "أنشئ صوراً احترافية بالذكاء الاصطناعي حسب الطلب"
+        : "Create professional AI-generated images on demand",
+      color: "text-pink-400",
+      bg: "bg-pink-500/10",
     },
     {
       icon: GraduationCap,
@@ -69,9 +89,14 @@ export default function Landing() {
       sub: isRTL ? "بث مباشر بالذكاء الاصطناعي" : "Streaming AI responses",
     },
     {
+      icon: Monitor,
+      label: isRTL ? "بناء مواقع" : "Website Builder",
+      sub: isRTL ? "أنشئ موقعك بالذكاء الاصطناعي" : "Build sites with AI",
+    },
+    {
       icon: Sparkles,
-      label: isRTL ? "تحليل الصور" : "Image Analysis",
-      sub: isRTL ? "أرسل صورة واحصل على اقتراحات" : "Send images for suggestions",
+      label: isRTL ? "توليد الصور" : "Image Generation",
+      sub: isRTL ? "صور احترافية بالذكاء الاصطناعي" : "Professional AI images",
     },
   ];
 
@@ -90,7 +115,6 @@ export default function Landing() {
 
       {/* HERO */}
       <section className="relative flex flex-col items-center justify-center min-h-screen px-4 text-center">
-        {/* Background photo placeholder — will be replaced with actual photo */}
         <div
           className="absolute inset-0 opacity-10 pointer-events-none"
           style={{
@@ -100,12 +124,18 @@ export default function Landing() {
         />
 
         <div className="relative z-10 flex flex-col items-center space-y-8 max-w-4xl mx-auto">
-          <div className="w-28 h-28 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center shadow-[0_0_60px_rgba(124,58,237,0.4)] animate-pulse-slow">
-            <img
-              src={`${basePath}/logo.svg`}
-              alt="KS"
-              className="w-20 h-20"
-            />
+          {/* Khaled's Photo */}
+          <div className="relative">
+            <div className="w-36 h-36 rounded-full border-4 border-primary/50 shadow-[0_0_80px_rgba(124,58,237,0.5)] overflow-hidden ring-4 ring-primary/20">
+              <img
+                src={`${basePath}/khalid.jpg`}
+                alt="خالد سلمان"
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-primary flex items-center justify-center border-2 border-background shadow-lg">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -139,7 +169,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-6 mt-4">
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
             {highlights.map((h, i) => {
               const Icon = h.icon;
               return (
@@ -171,12 +201,12 @@ export default function Landing() {
             <h2 className="text-3xl md:text-4xl font-bold">{t("featuresTitle")}</h2>
             <p className="text-muted-foreground">
               {isRTL
-                ? "خبرة احترافية في أربعة مجالات متكاملة"
-                : "Professional expertise across four integrated domains"}
+                ? "خبرة احترافية في ستة مجالات متكاملة"
+                : "Professional expertise across six integrated domains"}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {services.map((svc, i) => {
               const Icon = svc.icon;
               return (
@@ -196,6 +226,70 @@ export default function Landing() {
                     <h3 className="font-bold text-lg text-foreground mb-1">{svc.title}</h3>
                     <p className="text-muted-foreground text-sm">{svc.desc}</p>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* CAPABILITIES SHOWCASE */}
+      <section className="relative py-20 px-4 bg-card/20">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse at 50% 50%, rgba(124,58,237,0.06) 0%, transparent 70%)",
+          }}
+        />
+        <div className="max-w-4xl mx-auto text-center space-y-10 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold">
+            {isRTL ? "ما يمكن للوكيل فعله" : "What the Agent Can Do"}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-start">
+            {[
+              {
+                icon: Monitor,
+                color: "text-cyan-400",
+                bg: "bg-cyan-500/10",
+                title: isRTL ? "بناء مواقع ويب كاملة" : "Build Complete Websites",
+                items: isRTL
+                  ? ["كود HTML/CSS/JS كامل", "تصميم متجاوب لجميع الأجهزة", "معاينة حية مباشرة في المحادثة", "تخصيص كامل حسب الطلب"]
+                  : ["Full HTML/CSS/JS code", "Responsive for all devices", "Live preview in chat", "Fully customized"],
+              },
+              {
+                icon: ImageIcon,
+                color: "text-pink-400",
+                bg: "bg-pink-500/10",
+                title: isRTL ? "توليد صور بالذكاء الاصطناعي" : "AI Image Generation",
+                items: isRTL
+                  ? ["شعارات وهويات بصرية", "صور إبداعية حسب الطلب", "تحليل الصور المرسلة", "اقتراحات تصميمية ذكية"]
+                  : ["Logos & visual identities", "Creative images on demand", "Analyze uploaded images", "Smart design suggestions"],
+              },
+              {
+                icon: Sparkles,
+                color: "text-purple-400",
+                bg: "bg-purple-500/10",
+                title: isRTL ? "استشارات ومشاريع متكاملة" : "Consultations & Full Projects",
+                items: isRTL
+                  ? ["مشاريع تخرج أكاديمية", "خطط عمل ودراسات", "محتوى رقمي احترافي", "دعم متعدد اللغات"]
+                  : ["Academic graduation projects", "Business plans & studies", "Professional digital content", "Multilingual support"],
+              },
+            ].map((cap, i) => {
+              const Icon = cap.icon;
+              return (
+                <div key={i} className="p-6 rounded-2xl border border-border bg-card/60 space-y-4">
+                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", cap.bg)}>
+                    <Icon className={cn("w-6 h-6", cap.color)} />
+                  </div>
+                  <h3 className="font-bold text-lg">{cap.title}</h3>
+                  <ul className="space-y-1.5">
+                    {cap.items.map((item, j) => (
+                      <li key={j} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="text-primary">✓</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               );
             })}
@@ -255,6 +349,39 @@ export default function Landing() {
               <ArrowLeft className={cn("w-5 h-5", !isRTL && "rotate-180")} />
             </Button>
           </Link>
+        </div>
+      </section>
+
+      {/* ABOUT KHALED */}
+      <section className="relative py-20 px-4 border-t border-border/30">
+        <div className="max-w-4xl mx-auto">
+          <div className={cn("flex flex-col md:flex-row gap-10 items-center", isRTL ? "md:flex-row" : "md:flex-row-reverse")}>
+            <div className="shrink-0">
+              <div className="w-48 h-48 rounded-2xl border-2 border-primary/30 overflow-hidden shadow-[0_0_40px_rgba(124,58,237,0.3)]">
+                <img
+                  src={`${basePath}/khalid.jpg`}
+                  alt="خالد سلمان"
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
+            </div>
+            <div className="text-center md:text-start space-y-4">
+              <h2 className="text-3xl font-bold">
+                {isRTL ? "من هو خالد سلمان؟" : "Who is Khaled Salman?"}
+              </h2>
+              <p className="text-muted-foreground leading-relaxed">
+                {isRTL
+                  ? "مبدع يمني متخصص في الذكاء الاصطناعي، تصميم المواقع، الهوية البصرية، والمحتوى الرقمي. يقدم خالد حلولاً إبداعية متكاملة للأفراد والمؤسسات، مع خبرة واسعة في الخدمات الأكاديمية والبرمجة وتوليد الصور بالذكاء الاصطناعي."
+                  : "A Yemeni creative professional specializing in AI, website design, visual identity, and digital content. Khaled provides comprehensive creative solutions for individuals and institutions, with extensive experience in academic services, programming, and AI image generation."}
+              </p>
+              <Link href="/sign-up">
+                <Button className="gap-2 shadow-lg shadow-primary/30">
+                  <Sparkles className="w-4 h-4" />
+                  {isRTL ? "ابدأ الآن مجاناً" : "Start Now for Free"}
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
