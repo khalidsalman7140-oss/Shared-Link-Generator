@@ -50,19 +50,11 @@
 
 ## Product
 
-- Landing page (`/`) — hero with Khaled's real photo, 6 services, capabilities showcase, about section, pricing teaser, contact info, copyright
+- Landing page (`/`) — hero, services, pricing teaser, contact info, copyright
 - Sign In (`/sign-in`) + Sign Up (`/sign-up`) — Clerk auth with dark Arabic UI
-- Chat (`/chat`) — streaming AI agent (auth required), image upload, markdown rendering, HTML website live preview, AI image generation display, conversation history
-- Services (`/services`) — 6 service categories showcase
+- Chat (`/chat`) — streaming AI agent (auth required), image upload, conversation history
+- Services (`/services`) — 4 service categories showcase
 - Pricing (`/pricing`) — 4 subscription plans with WhatsApp contact for payment
-
-## AI Agent Capabilities (via enhanced system prompt)
-
-- **Website builder**: Agent generates complete HTML/CSS/JS — auto-rendered as live iframe preview in chat
-- **AI image generation**: Agent emits `[GENERATE_IMAGE: prompt]` — frontend auto-calls `/api/gemini/generate-image` and displays the result
-- **Image analysis**: Upload any image, agent analyzes and suggests services
-- **Markdown responses**: Full markdown rendering including tables, lists, code blocks, headers
-- **Quick prompt buttons**: 4 preset prompts in welcome screen (website, logo, identity, project)
 
 ## Auth & Subscription Flow
 
@@ -82,7 +74,7 @@
 - Dark theme by default
 - Arabic RTL support
 - Khaled Salman's contact: WhatsApp +967783701365 / +967779435445, Telegram @kshskshg, Email khalidsalman7140@gmail.com
-- Khaled's photo: added at `artifacts/khalid-agent/public/khalid.jpg` — shown in hero, about section, and as AI avatar in chat messages
+- Khaled's photo: not yet added — landing page uses KS logo placeholder. When received, save to `artifacts/khalid-agent/public/khalid.jpg`
 
 ## Gotchas
 
