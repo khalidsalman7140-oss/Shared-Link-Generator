@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useI18n, LANGUAGES, type Lang } from "@/lib/i18n";
+import { GlobalVoiceToggle } from "@/components/VoiceButton";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
@@ -275,9 +276,10 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
 
       <Separator className="bg-sidebar-border/50" />
 
-      {/* Language Selector */}
-      <div className="px-3 pt-2">
-        <LanguageSelector />
+      {/* Language Selector + Voice Toggle */}
+      <div className="px-3 pt-2 flex items-center gap-2">
+        <div className="flex-1"><LanguageSelector /></div>
+        <GlobalVoiceToggle />
       </div>
 
       <Separator className="bg-sidebar-border/50 my-2" />

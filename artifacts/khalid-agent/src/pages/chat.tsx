@@ -13,6 +13,7 @@ import {
   Send, Image as ImageIcon, Bot, User, Sparkles, X, Loader2,
   Zap, Ban, Crown, Brain,
 } from "lucide-react";
+import { VoiceButton, GlobalVoiceToggle } from "@/components/VoiceButton";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -280,11 +281,16 @@ export default function Chat() {
                 )}>
                   {msg.role === "user" ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
                 </div>
-                <div className={cn(
-                  "px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed",
-                  msg.role === "user" ? "bg-secondary text-secondary-foreground rounded-tr-sm" : "bg-card border border-border rounded-tl-sm text-card-foreground shadow-sm",
-                )}>
-                  {displayContent(msg.content)}
+                <div className="flex flex-col gap-1 max-w-[85%]">
+                  <div className={cn(
+                    "px-5 py-4 rounded-2xl whitespace-pre-wrap leading-relaxed",
+                    msg.role === "user" ? "bg-secondary text-secondary-foreground rounded-tr-sm" : "bg-card border border-border rounded-tl-sm text-card-foreground shadow-sm",
+                  )}>
+                    {displayContent(msg.content)}
+                  </div>
+                  {msg.role === "assistant" && (
+                    <VoiceButton text={msg.content} size="xs" className="self-start ms-1" />
+                  )}
                 </div>
               </div>
             ))}

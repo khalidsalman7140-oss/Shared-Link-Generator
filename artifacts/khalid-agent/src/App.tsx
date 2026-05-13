@@ -17,6 +17,8 @@ import AdminPage from "@/pages/admin";
 import PaymentRequestPage from "@/pages/payment-request";
 import CareerMapPage from "@/pages/career-map";
 import GuestChatPage from "@/pages/guest-chat";
+import AboutPage from "@/pages/about";
+import VisionPage from "@/pages/vision";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -180,6 +182,8 @@ function AppRouter() {
               <Route path="/subscribe" component={PaymentRequestPage} />
               <Route path="/career-map" component={CareerMapPage} />
               <Route path="/guest-chat" component={GuestChatPage} />
+              <Route path="/about" component={AboutPage} />
+              <Route path="/vision" component={VisionPage} />
               <Route path="/admin" component={AdminPage} />
               <Route component={NotFound} />
             </Switch>
