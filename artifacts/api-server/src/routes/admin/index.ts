@@ -236,6 +236,16 @@ router.delete("/admin/announcements/:id", requireAdmin, async (req: Request, res
   res.json({ success: true });
 });
 
+router.post("/admin/notify-access", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const now = new Date().toLocaleString("ar-YE", { timeZone: "Asia/Aden", hour12: true });
+  await notifyAdmin(
+    "🔐 تم فتح لوحة التحكم",
+    `دخل المالك خالد سلمان إلى لوحة الإدارة\nالوقت: ${now}`,
+    2,
+  );
+  res.json({ ok: true });
+});
+
 router.get("/admin/bookings", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const list = await db.select().from(bookingsTable).orderBy(desc(bookingsTable.createdAt)).limit(200);
   res.json(list);

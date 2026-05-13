@@ -165,6 +165,16 @@ export default function AdminPage() {
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
 
+  // Auto-unlock admin panel for the owner — no password needed
+  useEffect(() => {
+    if (isAdmin && !adminUnlocked) {
+      sessionStorage.setItem("ks_admin_unlocked", "1");
+      setAdminUnlocked(true);
+      // Send security notification to Khaled's phone
+      fetch("/api/admin/notify-access", { method: "POST" }).catch(() => {});
+    }
+  }, [isAdmin, adminUnlocked]);
+
   const fetchStats = useCallback(async () => {
     const r = await fetch("/api/admin/stats");
     if (r.ok) setStats(await r.json());
