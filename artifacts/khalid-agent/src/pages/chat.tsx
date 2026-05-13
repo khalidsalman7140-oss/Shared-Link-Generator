@@ -10,16 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Send,
-  Image as ImageIcon,
-  Bot,
-  User,
-  Sparkles,
-  X,
-  Loader2,
-  Zap,
-  AlertTriangle,
-  Ban,
+  Send, Image as ImageIcon, Bot, User, Sparkles, X, Loader2,
+  Zap, Ban, Crown, Brain,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -32,12 +24,7 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = (err) => reject(err);
   });
 
-interface UsageInfo {
-  plan: string;
-  usageToday: number;
-  limit: number | null;
-  isExpired: boolean;
-}
+type LimitError = { type: "blocked" | "premium_required"; message: string } | null;
 
 export default function Chat() {
   const searchString = useSearch();
@@ -51,29 +38,17 @@ export default function Chat() {
 
   const { data: conversation, isLoading: isConvLoading } = useGetGeminiConversation(
     conversationId || 0,
-    {
-      query: {
-        enabled: !!conversationId,
-        queryKey: getGetGeminiConversationQueryKey(conversationId || 0),
-      },
-    },
+    { query: { enabled: !!conversationId, queryKey: getGetGeminiConversationQueryKey(conversationId || 0) } },
   );
-
   const createMutation = useCreateGeminiConversation();
 
   const [input, setInput] = useState("");
-  const [selectedImage, setSelectedImage] = useState<{
-    file: File;
-    base64: string;
-    mimeType: string;
-  } | null>(null);
-  const [localMessages, setLocalMessages] = useState<
-    Array<{ id: number; role: string; content: string }>
-  >([]);
+  const [selectedImage, setSelectedImage] = useState<{ file: File; base64: string; mimeType: string } | null>(null);
+  const [localMessages, setLocalMessages] = useState<Array<{ id: number; role: string; content: string }>>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
-  const [usageInfo, setUsageInfo] = useState<UsageInfo | null>(null);
-  const [limitError, setLimitError] = useState<{ type: "blocked" | "limit_exceeded"; message: string } | null>(null);
+  const [limitError, setLimitError] = useState<LimitError>(null);
+  const [userPlan, setUserPlan] = useState<string>("free");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,32 +58,22 @@ export default function Chat() {
     try {
       const r = await fetch("/api/gemini/usage");
       if (r.ok) {
-        const data = await r.json() as UsageInfo;
-        setUsageInfo(data);
-        if (data.plan === "free" && data.limit !== null && data.usageToday >= data.limit) {
-          setLimitError({ type: "limit_exceeded", message: lang === "ar" ? `استنفدت حصتك اليومية (${data.usageToday}/${data.limit} رسائل)` : `Daily limit reached (${data.usageToday}/${data.limit})` });
-        } else {
-          setLimitError(null);
-        }
+        const data = await r.json() as { plan: string; unlimited: boolean };
+        setUserPlan(data.plan);
       }
     } catch {}
-  }, [lang]);
+  }, []);
 
   useEffect(() => { fetchUsage(); }, [fetchUsage]);
 
   useEffect(() => {
-    if (conversation?.messages) {
-      setLocalMessages(conversation.messages);
-    } else if (!conversationId) {
-      setLocalMessages([]);
-    }
+    if (conversation?.messages) setLocalMessages(conversation.messages);
+    else if (!conversationId) setLocalMessages([]);
   }, [conversation?.messages, conversationId]);
 
   useEffect(() => {
     if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]",
-      );
+      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
   }, [localMessages, streamingContent]);
@@ -117,8 +82,7 @@ export default function Chat() {
     const file = e.target.files?.[0];
     if (file) {
       const base64Full = await fileToBase64(file);
-      const base64Data = base64Full.split(",")[1] || base64Full;
-      setSelectedImage({ file, base64: base64Data, mimeType: file.type });
+      setSelectedImage({ file, base64: base64Full.split(",")[1] || base64Full, mimeType: file.type });
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -126,33 +90,31 @@ export default function Chat() {
   const sendMessage = async (targetConvId: number, content: string) => {
     setIsStreaming(true);
     setStreamingContent("");
+    setLimitError(null);
     const tempId = Date.now();
     setLocalMessages((prev) => [...prev, { id: tempId, role: "user", content }]);
     setInput("");
     setSelectedImage(null);
 
     try {
-      const response = await fetch(
-        `/api/gemini/conversations/${targetConvId}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        },
-      );
+      const response = await fetch(`/api/gemini/conversations/${targetConvId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
 
-      if (response.status === 429 || response.status === 403) {
+      if (response.status === 403 || response.status === 402 || response.status === 429) {
         const errData = await response.json() as { error: string; message?: string };
         setLocalMessages((prev) => prev.filter(m => m.id !== tempId));
         setLimitError({
-          type: errData.error === "blocked" ? "blocked" : "limit_exceeded",
+          type: errData.error === "blocked" ? "blocked" : "premium_required",
           message: errData.message ?? (lang === "ar" ? "حدث خطأ" : "An error occurred"),
         });
         return;
       }
 
-      if (!response.ok) throw new Error("Failed to send message");
-      if (!response.body) throw new Error("No response body");
+      if (!response.ok) throw new Error("Failed");
+      if (!response.body) throw new Error("No body");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -168,7 +130,7 @@ export default function Chat() {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const data = JSON.parse(line.slice(6)) as { content?: string; done?: boolean; error?: string };
+              const data = JSON.parse(line.slice(6)) as { content?: string; done?: boolean };
               if (data.content) {
                 fullAssistantContent += data.content;
                 setStreamingContent(fullAssistantContent);
@@ -178,18 +140,11 @@ export default function Chat() {
         }
       }
 
-      await fetchUsage();
-      queryClient.invalidateQueries({
-        queryKey: getGetGeminiConversationQueryKey(targetConvId),
-      });
+      queryClient.invalidateQueries({ queryKey: getGetGeminiConversationQueryKey(targetConvId) });
     } catch {
       setLocalMessages((prev) => [
         ...prev,
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: lang === "ar" ? "عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى." : "Sorry, an error occurred. Please try again.",
-        },
+        { id: Date.now(), role: "assistant", content: lang === "ar" ? "عذراً، حدث خطأ. يرجى المحاولة مرة أخرى." : "Sorry, an error occurred. Please try again." },
       ]);
     } finally {
       setIsStreaming(false);
@@ -201,7 +156,7 @@ export default function Chat() {
     e?.preventDefault();
     if (!input.trim() && !selectedImage) return;
     if (isStreaming) return;
-    if (limitError) return;
+    if (limitError?.type === "blocked") return;
 
     let messageContent = input.trim();
     if (selectedImage) {
@@ -211,12 +166,7 @@ export default function Chat() {
     if (!conversationId) {
       createMutation.mutate(
         { data: { title: messageContent.slice(0, 60) || t("newChat") } },
-        {
-          onSuccess: (newConv) => {
-            setLocation(`/chat?id=${newConv.id}`);
-            sendMessage(newConv.id, messageContent);
-          },
-        },
+        { onSuccess: (newConv) => { setLocation(`/chat?id=${newConv.id}`); sendMessage(newConv.id, messageContent); } },
       );
     } else {
       sendMessage(conversationId, messageContent);
@@ -224,62 +174,53 @@ export default function Chat() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
   const displayContent = (content: string) =>
     content.replace(/\[IMAGE:[^\]]+\]/g, isRTL ? "[📷 صورة مرفقة]" : "[📷 Image attached]").trim();
 
-  const isLimitReached = limitError?.type === "limit_exceeded";
   const isBlocked = limitError?.type === "blocked";
-  const isFreeNearLimit = usageInfo?.plan === "free" && usageInfo.limit !== null &&
-    usageInfo.usageToday >= usageInfo.limit - 1 && !isLimitReached;
+  const isPremiumNeeded = limitError?.type === "premium_required";
 
   const WelcomeScreen = () => (
     <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto p-8 text-center space-y-8 animate-in fade-in zoom-in duration-500">
       <div className="w-24 h-24 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_50px_rgba(124,58,237,0.3)]">
         <Sparkles className="w-12 h-12 text-primary" />
       </div>
-      <div className="space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-glow">
-          {t("appName")}
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl">{t("tagline")}</p>
+      <div className="space-y-3">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-glow">{t("appName")}</h1>
+        <p className="text-lg text-primary font-semibold">{lang === "ar" ? "نبني مهاراتك.. لنبني اليمن" : "We build your skills.. to build Yemen"}</p>
+        <p className="text-muted-foreground max-w-xl">{t("taglineSub")}</p>
       </div>
-      <div
-        className={cn(
-          "grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-8",
-          isRTL ? "text-right" : "text-left",
-        )}
-      >
+
+      <div className="flex flex-wrap justify-center gap-2">
         {[
-          {
-            title: isRTL ? "التصميم والإبداع" : "Design & Creativity",
-            desc: isRTL ? "هوية بصرية، صور بالذكاء الاصطناعي، ديكور" : "Visual identity, AI images, decor",
-          },
-          {
-            title: isRTL ? "المحتوى الرقمي" : "Digital Content",
-            desc: isRTL ? "فيديوهات، كتب إلكترونية، عروض تقديمية" : "Videos, eBooks, presentations",
-          },
-          {
-            title: isRTL ? "الخدمات الأكاديمية" : "Academic Services",
-            desc: isRTL ? "مشاريع تخرج، عروض جامعية" : "Graduation projects, university presentations",
-          },
-          {
-            title: isRTL ? "البرمجة والبيانات" : "Programming & Data",
-            desc: isRTL ? "تطبيقات وأنظمة، تحليل بيانات" : "Apps, systems, data analysis",
-          },
+          { icon: Zap, label: lang === "ar" ? "دردشة مجانية غير محدودة" : "Unlimited free chat", color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/5" },
+          { icon: Brain, label: lang === "ar" ? "تحديد المسار المهني" : "Career mapping", color: "text-primary border-primary/30 bg-primary/5", link: "/career-map" },
+          { icon: Crown, label: lang === "ar" ? "خدمات ثقيلة بخطة مدفوعة" : "Heavy tasks on paid plan", color: "text-yellow-400 border-yellow-500/30 bg-yellow-500/5" },
+        ].map((b, i) => {
+          const Icon = b.icon;
+          const content = (
+            <span key={i} className={cn("flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border", b.color)}>
+              <Icon className="w-3 h-3" />{b.label}
+            </span>
+          );
+          return b.link ? <Link key={i} href={b.link}>{content}</Link> : content;
+        })}
+      </div>
+
+      <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 w-full mt-4", isRTL ? "text-right" : "text-left")}>
+        {[
+          { title: isRTL ? "التصميم والإبداع" : "Design & Creativity", desc: isRTL ? "هوية بصرية، صور، ديكور" : "Visual identity, AI images, decor" },
+          { title: isRTL ? "المحتوى الرقمي" : "Digital Content", desc: isRTL ? "فيديوهات، كتب، عروض" : "Videos, eBooks, presentations" },
+          { title: isRTL ? "الخدمات الأكاديمية" : "Academic Services", desc: isRTL ? "مشاريع تخرج، عروض جامعية" : "Graduation projects, presentations" },
+          { title: isRTL ? "البرمجة والبيانات" : "Programming & Data", desc: isRTL ? "مواقع، تطبيقات، تحليل بيانات" : "Websites, apps, data analysis" },
         ].map((service, i) => (
           <div
             key={i}
-            className="p-4 rounded-xl border border-border bg-card/50 backdrop-blur-sm hover:bg-accent/50 transition-colors cursor-pointer"
-            onClick={() => {
-              setInput(isRTL ? `أريد معرفة المزيد عن قسم ${service.title}` : `Tell me more about ${service.title}`);
-              textareaRef.current?.focus();
-            }}
+            className="p-4 rounded-xl border border-border bg-card/50 hover:bg-accent/50 transition-colors cursor-pointer"
+            onClick={() => { setInput(isRTL ? `أريد معرفة المزيد عن قسم ${service.title}` : `Tell me more about ${service.title}`); textareaRef.current?.focus(); }}
           >
             <h3 className="font-semibold text-primary mb-1">{service.title}</h3>
             <p className="text-sm text-muted-foreground">{service.desc}</p>
@@ -291,64 +232,32 @@ export default function Chat() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-transparent">
-      {/* Usage bar for free plan */}
-      {usageInfo && usageInfo.plan === "free" && usageInfo.limit !== null && !isBlocked && (
-        <div className={cn(
-          "mx-4 mt-3 px-3 py-2 rounded-xl border flex items-center gap-2 text-xs",
-          isLimitReached
-            ? "bg-destructive/10 border-destructive/40 text-destructive"
-            : isFreeNearLimit
-              ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
-              : "bg-primary/5 border-primary/20 text-muted-foreground",
-        )}>
-          {isLimitReached ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <Zap className="w-3.5 h-3.5 shrink-0" />}
-          <span className="flex-1">
-            {isLimitReached
-              ? (lang === "ar" ? `استنفدت حصتك اليومية المجانية (${usageInfo.usageToday}/${usageInfo.limit} رسائل)` : `Daily free limit reached (${usageInfo.usageToday}/${usageInfo.limit} messages)`)
-              : (lang === "ar" ? `رسائل مجانية اليوم: ${usageInfo.usageToday} / ${usageInfo.limit}` : `Free messages today: ${usageInfo.usageToday} / ${usageInfo.limit}`)}
-          </span>
-          {isLimitReached && (
-            <Link href="/pricing">
-              <span className="font-bold underline cursor-pointer">{lang === "ar" ? "ترقية الخطة" : "Upgrade"}</span>
-            </Link>
-          )}
-        </div>
-      )}
-
       {/* Blocked notice */}
       {isBlocked && (
         <div className="mx-4 mt-3 px-4 py-3 rounded-xl border bg-destructive/10 border-destructive/40 flex items-start gap-3 text-sm text-destructive">
           <Ban className="w-5 h-5 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold mb-0.5">{lang === "ar" ? "تم تعليق حسابك" : "Your account has been suspended"}</p>
-            <p className="text-xs opacity-80">{lang === "ar" ? "للاستفسار تواصل عبر واتساب: +967783701365" : "Contact support: +967783701365"}</p>
+            <p className="font-bold mb-0.5">{lang === "ar" ? "تم تعليق حسابك" : "Account suspended"}</p>
+            <p className="text-xs opacity-80">{lang === "ar" ? "للاستفسار: +967783701365" : "Contact: +967783701365"}</p>
           </div>
         </div>
       )}
 
-      {/* Limit exceeded banner */}
-      {isLimitReached && !isBlocked && (
-        <div className="mx-4 mt-2 px-4 py-3 rounded-xl border bg-yellow-500/5 border-yellow-500/30 flex flex-col gap-2 text-sm">
-          <p className="text-yellow-400 font-medium">
-            {lang === "ar" ? "🔒 وصلت إلى الحد اليومي للخطة المجانية" : "🔒 Free plan daily limit reached"}
+      {/* Premium required notice */}
+      {isPremiumNeeded && (
+        <div className="mx-4 mt-3 px-4 py-3 rounded-xl border bg-yellow-500/5 border-yellow-500/30 flex flex-col gap-2 text-sm">
+          <p className="text-yellow-400 font-medium flex items-center gap-1.5">
+            <Crown className="w-4 h-4" />
+            {lang === "ar" ? "هذه المهمة تتطلب خطة مدفوعة" : "This task requires a paid plan"}
           </p>
-          <p className="text-muted-foreground text-xs">
-            {lang === "ar"
-              ? "اشترك في أي خطة مدفوعة للحصول على رسائل غير محدودة. أسعار تبدأ من $2.99 فقط في الأسبوع."
-              : "Subscribe to any paid plan for unlimited messages. Prices start at just $2.99/week."}
-          </p>
+          <p className="text-muted-foreground text-xs">{limitError?.message}</p>
           <div className="flex gap-2">
             <Link href="/subscribe?plan=weekly">
-              <Button size="sm" className="text-xs h-7 gap-1">
-                <Zap className="w-3 h-3" />
-                {lang === "ar" ? "اشترك الآن" : "Subscribe Now"}
-              </Button>
+              <Button size="sm" className="text-xs h-7 gap-1"><Zap className="w-3 h-3" />{lang === "ar" ? "اشترك $2.99/أسبوع" : "Subscribe $2.99/week"}</Button>
             </Link>
-            <Link href="/pricing">
-              <Button size="sm" variant="outline" className="text-xs h-7">
-                {lang === "ar" ? "عرض الخطط" : "View Plans"}
-              </Button>
-            </Link>
+            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setLimitError(null)}>
+              {lang === "ar" ? "متابعة الدردشة" : "Continue chatting"}
+            </Button>
           </div>
         </div>
       )}
@@ -364,40 +273,21 @@ export default function Chat() {
               </div>
             )}
             {localMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex gap-4",
-                  msg.role === "user" ? "flex-row-reverse" : "flex-row",
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border",
-                    msg.role === "user"
-                      ? "bg-secondary border-secondary-border"
-                      : "bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]",
-                  )}
-                >
-                  {msg.role === "user" ? (
-                    <User className="w-5 h-5" />
-                  ) : (
-                    <Bot className="w-5 h-5" />
-                  )}
+              <div key={msg.id} className={cn("flex gap-4", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border",
+                  msg.role === "user" ? "bg-secondary border-secondary-border" : "bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]",
+                )}>
+                  {msg.role === "user" ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
                 </div>
-                <div
-                  className={cn(
-                    "px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-secondary text-secondary-foreground rounded-tr-sm"
-                      : "bg-card border border-border rounded-tl-sm text-card-foreground shadow-sm",
-                  )}
-                >
+                <div className={cn(
+                  "px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed",
+                  msg.role === "user" ? "bg-secondary text-secondary-foreground rounded-tr-sm" : "bg-card border border-border rounded-tl-sm text-card-foreground shadow-sm",
+                )}>
                   {displayContent(msg.content)}
                 </div>
               </div>
             ))}
-
             {isStreaming && streamingContent && (
               <div className="flex gap-4 flex-row">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]">
@@ -409,7 +299,6 @@ export default function Chat() {
                 </div>
               </div>
             )}
-
             {isStreaming && !streamingContent && (
               <div className="flex gap-4 flex-row">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border bg-primary/20 border-primary/40 text-primary">
@@ -426,18 +315,20 @@ export default function Chat() {
           {selectedImage && (
             <div className="mb-3 relative inline-block">
               <div className="relative rounded-lg overflow-hidden border border-primary/30 shadow-[0_0_15px_rgba(124,58,237,0.2)]">
-                <img
-                  src={URL.createObjectURL(selectedImage.file)}
-                  alt="Selected"
-                  className="h-24 object-cover"
-                />
-                <button
-                  onClick={() => setSelectedImage(null)}
-                  className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-destructive transition-colors"
-                >
+                <img src={URL.createObjectURL(selectedImage.file)} alt="Selected" className="h-24 object-cover" />
+                <button onClick={() => setSelectedImage(null)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-destructive transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Plan badge */}
+          {userPlan !== "free" && (
+            <div className="mb-2 flex justify-end">
+              <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 flex items-center gap-1">
+                <Crown className="w-2.5 h-2.5" />{userPlan}
+              </span>
             </div>
           )}
 
@@ -445,60 +336,31 @@ export default function Chat() {
             onSubmit={handleSubmit}
             className={cn(
               "relative flex items-end gap-2 bg-card border rounded-3xl p-2 shadow-lg transition-all",
-              isLimitReached || isBlocked
-                ? "border-destructive/40 opacity-60 pointer-events-none"
-                : "border-input focus-within:ring-1 focus-within:ring-primary/50 focus-within:border-primary",
+              isBlocked ? "border-destructive/40 opacity-60 pointer-events-none" : "border-input focus-within:ring-1 focus-within:ring-primary/50 focus-within:border-primary",
             )}
           >
-            <input
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-            />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isStreaming || isLimitReached || isBlocked}
-            >
+            <input type="file" accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleImageSelect} />
+            <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              onClick={() => fileInputRef.current?.click()} disabled={isStreaming || isBlocked}>
               <ImageIcon className="w-5 h-5" />
             </Button>
-
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                isLimitReached
-                  ? (lang === "ar" ? "الحد اليومي مكتمل — اشترك للاستمرار" : "Daily limit reached — subscribe to continue")
-                  : isBlocked
-                    ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended")
-                    : t("sendMessage")
-              }
+              placeholder={isBlocked ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended") : t("sendMessage")}
               className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base"
               rows={1}
-              disabled={isStreaming || isLimitReached || isBlocked}
+              disabled={isStreaming || isBlocked}
             />
-
-            <Button
-              type="submit"
-              size="icon"
+            <Button type="submit" size="icon"
               className="shrink-0 rounded-full h-10 w-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.6)]"
-              disabled={(!input.trim() && !selectedImage) || isStreaming || isLimitReached || isBlocked}
-            >
+              disabled={(!input.trim() && !selectedImage) || isStreaming || isBlocked}>
               <Send className="w-4 h-4 rtl:-scale-x-100" />
             </Button>
           </form>
-
-          <div className="text-center mt-2 text-xs text-muted-foreground">
-            {t("aiDisclaimer")}
-          </div>
+          <div className="text-center mt-2 text-xs text-muted-foreground">{t("aiDisclaimer")}</div>
         </div>
       </div>
     </div>
