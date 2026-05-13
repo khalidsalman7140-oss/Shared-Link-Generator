@@ -5,6 +5,8 @@ import {
   Users, MessageSquare, Star, CreditCard, Shield, TrendingUp,
   ChevronRight, Check, X, Trash2, Crown, Zap, Building2, Sparkles,
   Bell, ArrowLeft, Eye, Ban, RefreshCw, BarChart3, AlertCircle,
+  Lock, Activity, ChevronDown, Mail, Phone, Send, Settings, Globe,
+  Megaphone, Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,16 @@ interface PaymentRequest {
   reviewNotes: string | null;
 }
 
+interface FraudEntry {
+  id: number;
+  emailHash: string;
+  userId: string | null;
+  deleteCount: number;
+  isBlocked: boolean;
+  usedTrialAt: string;
+  lastSeenAt: string;
+}
+
 const PLAN_COLORS: Record<string, string> = {
   free: "text-slate-400 bg-slate-500/10",
   weekly: "text-blue-400 bg-blue-500/10",
@@ -73,17 +85,21 @@ const PLAN_ICONS: Record<string, typeof Star> = {
   free: Star, weekly: Zap, monthly: Sparkles, annual: Crown, enterprise: Building2,
 };
 
+const PLAN_LABELS: Record<string, string> = {
+  free: "مجاني", weekly: "أسبوعي", monthly: "شهري", annual: "سنوي", enterprise: "مؤسسي",
+};
+
 function PlanBadge({ plan }: { plan: string }) {
   const Icon = PLAN_ICONS[plan] ?? Star;
   return (
     <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full", PLAN_COLORS[plan] ?? "text-slate-400 bg-slate-500/10")}>
       <Icon className="w-3 h-3" />
-      {plan}
+      {PLAN_LABELS[plan] ?? plan}
     </span>
   );
 }
 
-type Tab = "overview" | "users" | "ratings" | "payments" | "announcements";
+type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -93,6 +109,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [payments, setPayments] = useState<PaymentRequest[]>([]);
+  const [fraudList, setFraudList] = useState<FraudEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editPlan, setEditPlan] = useState<{ userId: string; plan: string } | null>(null);
@@ -100,6 +117,8 @@ export default function AdminPage() {
   const [viewReceipt, setViewReceipt] = useState<string | null>(null);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "" });
   const [announcements, setAnnouncements] = useState<{ id: number; title: string; content: string; isActive: boolean }[]>([]);
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [userFilter, setUserFilter] = useState("");
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -129,12 +148,17 @@ export default function AdminPage() {
     if (r.ok) setAnnouncements(await r.json());
   }, []);
 
+  const fetchFraud = useCallback(async () => {
+    const r = await fetch("/api/admin/fraud");
+    if (r.ok) setFraudList(await r.json());
+  }, []);
+
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return; }
-    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements()])
+    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud()])
       .catch(() => setError("فشل تحميل البيانات"))
       .finally(() => setLoading(false));
-  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements]);
+  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud]);
 
   const handleChangePlan = async () => {
     if (!editPlan) return;
@@ -147,6 +171,18 @@ export default function AdminPage() {
     await fetchUsers();
   };
 
+  const handleQuickPlan = async (userId: string, plan: string) => {
+    const planDays: Record<string, number> = { weekly: 7, monthly: 30, annual: 365, enterprise: 3650 };
+    const days = planDays[plan] ?? 0;
+    const validUntil = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : undefined;
+    await fetch(`/api/admin/users/${userId}/plan`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, validUntil }),
+    });
+    await Promise.all([fetchUsers(), fetchStats()]);
+  };
+
   const handleBlock = async (userId: string) => {
     await fetch(`/api/admin/users/${userId}/block`, {
       method: "POST",
@@ -154,6 +190,26 @@ export default function AdminPage() {
       body: JSON.stringify({ reason: "Blocked by admin" }),
     });
     await fetchUsers();
+  };
+
+  const handleQuickApprove = async (payment: PaymentRequest) => {
+    setApprovingId(payment.id);
+    await fetch(`/api/admin/payments/${payment.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved", reviewNotes: "تمت الموافقة تلقائياً" }),
+    });
+    setApprovingId(null);
+    await Promise.all([fetchPayments(), fetchStats(), fetchUsers()]);
+  };
+
+  const handleQuickReject = async (id: number) => {
+    await fetch(`/api/admin/payments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "rejected", reviewNotes: "تم الرفض" }),
+    });
+    await Promise.all([fetchPayments(), fetchStats()]);
   };
 
   const handlePaymentAction = async () => {
@@ -164,7 +220,7 @@ export default function AdminPage() {
       body: JSON.stringify({ status: paymentReview.status, reviewNotes: paymentReview.notes }),
     });
     setPaymentReview(null);
-    await Promise.all([fetchPayments(), fetchStats()]);
+    await Promise.all([fetchPayments(), fetchStats(), fetchUsers()]);
   };
 
   const handleDeleteRating = async (id: number) => {
@@ -195,6 +251,11 @@ export default function AdminPage() {
   const handleDeleteAnnouncement = async (id: number) => {
     await fetch(`/api/admin/announcements/${id}`, { method: "DELETE" });
     await fetchAnnouncements();
+  };
+
+  const handleUnblockFraud = async (id: number) => {
+    await fetch(`/api/admin/fraud/${id}/unblock`, { method: "POST" });
+    await fetchFraud();
   };
 
   if (!user) {
@@ -236,12 +297,19 @@ export default function AdminPage() {
     );
   }
 
+  const pendingPayments = payments.filter(p => p.status === "pending");
+  const filteredUsers = users.filter(u =>
+    !userFilter || u.email.toLowerCase().includes(userFilter.toLowerCase()) || u.name.toLowerCase().includes(userFilter.toLowerCase())
+  );
+  const suspiciousFraud = fraudList.filter(f => f.deleteCount >= 2 || f.isBlocked);
+
   const TABS: { id: Tab; label: string; icon: typeof BarChart3; badge?: number }[] = [
     { id: "overview", label: "نظرة عامة", icon: BarChart3 },
     { id: "users", label: "المستخدمون", icon: Users, badge: users.length },
-    { id: "ratings", label: "التقييمات", icon: Star, badge: ratings.length },
-    { id: "payments", label: "طلبات الدفع", icon: CreditCard, badge: payments.filter(p => p.status === "pending").length },
-    { id: "announcements", label: "الإعلانات", icon: Bell },
+    { id: "payments", label: "المدفوعات", icon: CreditCard, badge: pendingPayments.length || undefined },
+    { id: "ratings", label: "التقييمات", icon: Star, badge: ratings.length || undefined },
+    { id: "announcements", label: "الإعلانات", icon: Megaphone },
+    { id: "security", label: "الأمان", icon: Shield, badge: suspiciousFraud.length || undefined },
   ];
 
   return (
@@ -250,24 +318,32 @@ export default function AdminPage() {
       <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary/50">
-              <img src="/khalid.jpg" alt="Admin" className="w-full h-full object-cover object-top" />
+            <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary/50 shrink-0">
+              <img src="/khalid.jpg" alt="Admin" className="w-full h-full object-cover object-top"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
             <div>
               <h1 className="text-base font-bold text-primary">لوحة تحكم المدير</h1>
               <p className="text-[10px] text-muted-foreground">خالد سلمان — صلاحيات كاملة</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {stats?.pendingPayments ? (
-              <span className="flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {pendingPayments.length > 0 && (
+              <button onClick={() => setTab("payments")}
+                className="flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full animate-pulse hover:bg-yellow-500/30 transition-colors">
                 <Bell className="w-3 h-3" />
-                {stats.pendingPayments} طلب معلق
-              </span>
-            ) : null}
+                {pendingPayments.length} طلب معلق
+              </button>
+            )}
+            {suspiciousFraud.length > 0 && (
+              <button onClick={() => setTab("security")}
+                className="flex items-center gap-1 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full hover:bg-red-500/30 transition-colors">
+                <Shield className="w-3 h-3" />
+                {suspiciousFraud.length} تنبيه أمني
+              </button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setLocation("/chat")}>
-              <ArrowLeft className="w-4 h-4 ml-1" />
-              الدردشة
+              <ArrowLeft className="w-4 h-4 ml-1" />الدردشة
             </Button>
           </div>
         </div>
@@ -298,8 +374,7 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 flex items-center gap-2 text-sm text-destructive">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {error}
+            <AlertCircle className="w-4 h-4 shrink-0" />{error}
           </div>
         )}
 
@@ -311,14 +386,15 @@ export default function AdminPage() {
                 { label: "إجمالي المستخدمين", value: stats.totalUsers, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
                 { label: "رسائل اليوم", value: stats.messagesToday, icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
                 { label: "إجمالي المحادثات", value: stats.totalConversations, icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-                { label: "معدل التقييم", value: `${stats.avgRating}⭐ (${stats.totalRatings})`, icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+                { label: "معدل التقييم", value: `${stats.avgRating}⭐`, icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10" },
                 { label: "طلبات دفع معلقة", value: stats.pendingPayments, icon: CreditCard, color: "text-orange-400", bg: "bg-orange-500/10" },
-                { label: "إجمالي الرسائل", value: stats.totalMessages, icon: MessageSquare, color: "text-purple-400", bg: "bg-purple-500/10" },
+                { label: "إجمالي الرسائل", value: stats.totalMessages, icon: Database, color: "text-purple-400", bg: "bg-purple-500/10" },
                 { label: "مستخدمون محظورون", value: stats.totalBlocked, icon: Ban, color: "text-destructive", bg: "bg-destructive/10" },
+                { label: "تنبيهات أمنية", value: suspiciousFraud.length, icon: Shield, color: "text-red-400", bg: "bg-red-500/10" },
               ].map((card, i) => {
                 const Icon = card.icon;
                 return (
-                  <div key={i} className="bg-card border border-border rounded-xl p-4">
+                  <div key={i} className="bg-card border border-border rounded-xl p-4 hover:border-border/80 transition-colors">
                     <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center mb-3", card.bg)}>
                       <Icon className={cn("w-5 h-5", card.color)} />
                     </div>
@@ -329,18 +405,73 @@ export default function AdminPage() {
               })}
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><Crown className="w-4 h-4 text-yellow-400" /> توزيع الخطط</h3>
-              <div className="space-y-2">
-                {Object.entries(stats.planDistribution).map(([plan, count]) => (
-                  <div key={plan} className="flex items-center gap-3">
-                    <PlanBadge plan={plan} />
-                    <div className="flex-1 bg-border/30 rounded-full h-2 overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.round((count / stats.totalUsers) * 100)}%` }} />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-xl p-5">
+                <h3 className="font-bold mb-4 flex items-center gap-2"><Crown className="w-4 h-4 text-yellow-400" /> توزيع الخطط</h3>
+                <div className="space-y-2">
+                  {Object.entries(stats.planDistribution).map(([plan, count]) => (
+                    <div key={plan} className="flex items-center gap-3">
+                      <PlanBadge plan={plan} />
+                      <div className="flex-1 bg-border/30 rounded-full h-2 overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${stats.totalUsers > 0 ? Math.round((count / stats.totalUsers) * 100) : 0}%` }} />
+                      </div>
+                      <span className="text-sm font-medium w-8 text-right">{count}</span>
                     </div>
-                    <span className="text-sm font-medium w-8 text-right">{count}</span>
+                  ))}
+                </div>
+              </div>
+
+              {pendingPayments.length > 0 && (
+                <div className="bg-card border border-yellow-500/30 rounded-xl p-5">
+                  <h3 className="font-bold mb-4 flex items-center gap-2 text-yellow-400">
+                    <Bell className="w-4 h-4" />
+                    طلبات تحتاج موافقة ({pendingPayments.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {pendingPayments.slice(0, 3).map(p => (
+                      <div key={p.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{p.userName || p.userEmail || "مستخدم"}</p>
+                          <p className="text-[10px] text-muted-foreground"><PlanBadge plan={p.planRequested} /></p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700"
+                            disabled={approvingId === p.id}
+                            onClick={() => handleQuickApprove(p)}>
+                            {approvingId === p.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          </Button>
+                          <Button size="sm" variant="destructive" className="h-6 px-2 text-[10px]"
+                            onClick={() => handleQuickReject(p.id)}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingPayments.length > 3 && (
+                      <button onClick={() => setTab("payments")} className="text-xs text-primary hover:underline w-full text-center mt-1">
+                        + {pendingPayments.length - 3} طلبات أخرى
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-5">
+              <h3 className="font-bold mb-4 flex items-center gap-2"><Phone className="w-4 h-4 text-emerald-400" /> معلومات التواصل — خالد سلمان</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <a href="https://wa.me/967783701365" className="flex items-center gap-2 text-muted-foreground hover:text-emerald-400 transition-colors p-2 rounded-lg hover:bg-emerald-500/5">
+                  <Phone className="w-4 h-4 text-emerald-400 shrink-0" /><span dir="ltr">+967 783 701 365</span>
+                </a>
+                <a href="https://wa.me/967779435445" className="flex items-center gap-2 text-muted-foreground hover:text-emerald-400 transition-colors p-2 rounded-lg hover:bg-emerald-500/5">
+                  <Phone className="w-4 h-4 text-emerald-400 shrink-0" /><span dir="ltr">+967 779 435 445</span>
+                </a>
+                <a href="https://t.me/kshskshg" className="flex items-center gap-2 text-muted-foreground hover:text-blue-400 transition-colors p-2 rounded-lg hover:bg-blue-500/5">
+                  <Send className="w-4 h-4 text-blue-400 shrink-0" /><span dir="ltr">@kshskshg</span>
+                </a>
+                <a href="mailto:khalidsalman7140@gmail.com" className="flex items-center gap-2 text-muted-foreground hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-red-500/5">
+                  <Mail className="w-4 h-4 text-red-400 shrink-0" /><span>khalidsalman7140@gmail.com</span>
+                </a>
               </div>
             </div>
           </div>
@@ -349,9 +480,17 @@ export default function AdminPage() {
         {/* USERS */}
         {tab === "users" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="font-bold text-lg">المستخدمون ({users.length})</h2>
-              <Button size="sm" variant="outline" onClick={fetchUsers}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+              <div className="flex items-center gap-2">
+                <input
+                  className="bg-background border border-input rounded-lg px-3 py-1.5 text-sm w-48"
+                  placeholder="بحث باسم أو إيميل..."
+                  value={userFilter}
+                  onChange={e => setUserFilter(e.target.value)}
+                />
+                <Button size="sm" variant="outline" onClick={fetchUsers}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+              </div>
             </div>
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -360,12 +499,13 @@ export default function AdminPage() {
                     <tr>
                       <th className="text-right p-3 font-medium text-muted-foreground">المستخدم</th>
                       <th className="text-right p-3 font-medium text-muted-foreground">الخطة</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">اليوم</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground">الإجراءات</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground hidden md:table-cell">اليوم</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">ترقية سريعة</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">إجراء</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {users.map(u => (
+                    {filteredUsers.map(u => (
                       <tr key={u.userId} className="hover:bg-muted/20 transition-colors">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -379,12 +519,28 @@ export default function AdminPage() {
                           </div>
                         </td>
                         <td className="p-3"><PlanBadge plan={u.plan} /></td>
-                        <td className="p-3 text-muted-foreground text-xs">{u.usageToday} رسالة</td>
+                        <td className="p-3 text-muted-foreground text-xs hidden md:table-cell">{u.usageToday} رسالة</td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {["weekly","monthly","annual"].map(p => (
+                              <button key={p}
+                                onClick={() => handleQuickPlan(u.userId, p)}
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                                  u.plan === p
+                                    ? "border-primary/50 text-primary bg-primary/10"
+                                    : "border-border text-muted-foreground hover:border-primary/30 hover:text-primary"
+                                )}>
+                                {PLAN_LABELS[p]}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
                             <Button size="sm" variant="outline" className="text-xs h-7 px-2"
                               onClick={() => setEditPlan({ userId: u.userId, plan: u.plan })}>
-                              <Crown className="w-3 h-3 ml-1" />ترقية
+                              <Crown className="w-3 h-3 ml-1" />تخصيص
                             </Button>
                             <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-destructive hover:text-destructive"
                               onClick={() => handleBlock(u.userId)}>
@@ -396,7 +552,73 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+                {!filteredUsers.length && <p className="text-center text-muted-foreground py-8">لا توجد نتائج</p>}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* PAYMENTS */}
+        {tab === "payments" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-lg">طلبات الدفع ({payments.length})</h2>
+                {pendingPayments.length > 0 && (
+                  <p className="text-xs text-yellow-400">{pendingPayments.length} طلب ينتظر المراجعة</p>
+                )}
+              </div>
+              <Button size="sm" variant="outline" onClick={fetchPayments}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+            </div>
+            <div className="grid gap-3">
+              {payments.map(p => (
+                <div key={p.id} className={cn("bg-card border rounded-xl p-4", p.status === "pending" ? "border-yellow-500/40 bg-yellow-500/3" : p.status === "approved" ? "border-emerald-500/30" : "border-destructive/20 opacity-70")}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <PlanBadge plan={p.planRequested} />
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
+                          p.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
+                          p.status === "approved" ? "bg-emerald-500/20 text-emerald-400" :
+                          "bg-destructive/20 text-destructive"
+                        )}>
+                          {p.status === "pending" ? "⏳ معلق" : p.status === "approved" ? "✅ موافق عليه" : "❌ مرفوض"}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium truncate">{p.userName || p.userEmail}</p>
+                      <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+                        {p.transferService && <p>الخدمة: <span className="text-foreground">{p.transferService}</span></p>}
+                        {p.transferNumber && <p>رقم الحوالة: <span className="text-foreground font-mono">{p.transferNumber}</span></p>}
+                        {p.amount && <p>المبلغ: <span className="text-emerald-400 font-medium">{p.amount}</span></p>}
+                        {p.notes && <p className="text-muted-foreground/70">{p.notes}</p>}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(p.createdAt).toLocaleString("ar")}</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      {p.receiptImage && (
+                        <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => setViewReceipt(p.receiptImage)}>
+                          <Eye className="w-3 h-3 ml-1" />الوصل
+                        </Button>
+                      )}
+                      {p.status === "pending" && (
+                        <>
+                          <Button size="sm" className="text-xs h-7 bg-emerald-600 hover:bg-emerald-700 w-full"
+                            disabled={approvingId === p.id}
+                            onClick={() => handleQuickApprove(p)}>
+                            {approvingId === p.id ? <RefreshCw className="w-3 h-3 animate-spin ml-1" /> : <Check className="w-3 h-3 ml-1" />}
+                            قبول فوري
+                          </Button>
+                          <Button size="sm" variant="destructive" className="text-xs h-7 w-full"
+                            onClick={() => handleQuickReject(p.id)}>
+                            <X className="w-3 h-3 ml-1" />رفض
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!payments.length && <p className="text-center text-muted-foreground py-8">لا توجد طلبات دفع</p>}
             </div>
           </div>
         )}
@@ -412,7 +634,7 @@ export default function AdminPage() {
               {ratings.map(r => (
                 <div key={r.id} className="bg-card border border-border rounded-xl p-4 flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-yellow-400">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
                       <span className="text-xs text-muted-foreground">{r.userName || r.userEmail || "مجهول"}</span>
                       {r.service && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{r.service}</span>}
@@ -430,68 +652,12 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* PAYMENTS */}
-        {tab === "payments" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg">طلبات الدفع ({payments.length})</h2>
-              <Button size="sm" variant="outline" onClick={fetchPayments}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
-            </div>
-            <div className="grid gap-3">
-              {payments.map(p => (
-                <div key={p.id} className={cn("bg-card border rounded-xl p-4", p.status === "pending" ? "border-yellow-500/40" : p.status === "approved" ? "border-emerald-500/30" : "border-destructive/30")}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <PlanBadge plan={p.planRequested} />
-                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
-                          p.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                          p.status === "approved" ? "bg-emerald-500/20 text-emerald-400" :
-                          "bg-destructive/20 text-destructive"
-                        )}>
-                          {p.status === "pending" ? "معلق" : p.status === "approved" ? "موافق عليه" : "مرفوض"}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium">{p.userName || p.userEmail}</p>
-                      <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
-                        {p.transferService && <p>خدمة التحويل: <span className="text-foreground">{p.transferService}</span></p>}
-                        {p.transferNumber && <p>رقم الحوالة: <span className="text-foreground font-mono">{p.transferNumber}</span></p>}
-                        {p.amount && <p>المبلغ: <span className="text-foreground">{p.amount}</span></p>}
-                        {p.notes && <p>ملاحظات: {p.notes}</p>}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(p.createdAt).toLocaleString("ar")}</p>
-                    </div>
-                    <div className="flex flex-col gap-1 shrink-0">
-                      {p.receiptImage && (
-                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setViewReceipt(p.receiptImage)}>
-                          <Eye className="w-3 h-3 ml-1" />صورة
-                        </Button>
-                      )}
-                      {p.status === "pending" && (
-                        <>
-                          <Button size="sm" className="text-xs h-7 bg-emerald-600 hover:bg-emerald-700" onClick={() => setPaymentReview({ id: p.id, status: "approved", notes: "" })}>
-                            <Check className="w-3 h-3 ml-1" />قبول
-                          </Button>
-                          <Button size="sm" variant="destructive" className="text-xs h-7" onClick={() => setPaymentReview({ id: p.id, status: "rejected", notes: "" })}>
-                            <X className="w-3 h-3 ml-1" />رفض
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {!payments.length && <p className="text-center text-muted-foreground py-8">لا توجد طلبات دفع</p>}
-            </div>
-          </div>
-        )}
-
         {/* ANNOUNCEMENTS */}
         {tab === "announcements" && (
           <div className="space-y-4">
-            <h2 className="font-bold text-lg">الإعلانات والإشعارات</h2>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Megaphone className="w-5 h-5 text-primary" />الإعلانات والإشعارات</h2>
             <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-              <h3 className="font-medium text-sm">إضافة إعلان جديد</h3>
+              <h3 className="font-medium text-sm text-primary">➕ إضافة إعلان جديد</h3>
               <input
                 className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
                 placeholder="عنوان الإعلان"
@@ -506,7 +672,7 @@ export default function AdminPage() {
                 onChange={e => setNewAnnouncement(p => ({ ...p, content: e.target.value }))}
               />
               <Button size="sm" onClick={handleAddAnnouncement} disabled={!newAnnouncement.title || !newAnnouncement.content}>
-                نشر الإعلان
+                <Bell className="w-4 h-4 ml-1" />نشر الإعلان
               </Button>
             </div>
             <div className="grid gap-3">
@@ -514,8 +680,13 @@ export default function AdminPage() {
                 <div key={a.id} className={cn("bg-card border rounded-xl p-4", a.isActive ? "border-primary/30" : "border-border opacity-60")}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium">{a.title}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{a.content}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium">{a.title}</p>
+                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full", a.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground")}>
+                          {a.isActive ? "نشط" : "موقوف"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{a.content}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleToggleAnnouncement(a.id, a.isActive)}>
@@ -528,6 +699,96 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+              {!announcements.length && <p className="text-center text-muted-foreground py-8">لا توجد إعلانات</p>}
+            </div>
+          </div>
+        )}
+
+        {/* SECURITY */}
+        {tab === "security" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <Shield className="w-5 h-5 text-red-400" />
+                مكافحة الاحتيال والأمان
+              </h2>
+              <Button size="sm" variant="outline" onClick={fetchFraud}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { label: "إيميلات مرصودة", value: fraudList.length, color: "text-blue-400", bg: "bg-blue-500/10" },
+                { label: "حالات مشبوهة", value: fraudList.filter(f => f.deleteCount >= 2).length, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+                { label: "محظورون", value: fraudList.filter(f => f.isBlocked).length, color: "text-red-400", bg: "bg-red-500/10" },
+              ].map((c, i) => (
+                <div key={i} className="bg-card border border-border rounded-xl p-4 text-center">
+                  <div className={cn("text-2xl font-black", c.color)}>{c.value}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{c.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-border bg-muted/20">
+                <h3 className="font-medium text-sm flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-primary" />
+                  سجل بصمات الإيميلات
+                  <span className="text-xs text-muted-foreground font-normal">— يمنع إعادة الاشتراك المجاني بعد حذف الحساب</span>
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-border bg-muted/10">
+                    <tr>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">بصمة الإيميل</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">عدد الحذف</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">الحالة</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">آخر ظهور</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {fraudList.map(f => (
+                      <tr key={f.id} className={cn("hover:bg-muted/20 transition-colors", f.isBlocked && "bg-red-500/5")}>
+                        <td className="p-3">
+                          <span className="font-mono text-xs text-muted-foreground">{f.emailHash.slice(0, 16)}…</span>
+                        </td>
+                        <td className="p-3">
+                          <span className={cn("text-xs font-bold", f.deleteCount >= 2 ? "text-yellow-400" : "text-muted-foreground")}>
+                            {f.deleteCount} مرة
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
+                            f.isBlocked ? "bg-red-500/20 text-red-400" :
+                            f.deleteCount >= 2 ? "bg-yellow-500/20 text-yellow-400" :
+                            "bg-emerald-500/20 text-emerald-400"
+                          )}>
+                            {f.isBlocked ? "محظور" : f.deleteCount >= 2 ? "مشبوه" : "طبيعي"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {new Date(f.lastSeenAt).toLocaleDateString("ar")}
+                        </td>
+                        <td className="p-3">
+                          {f.isBlocked && (
+                            <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+                              onClick={() => handleUnblockFraud(f.id)}>
+                              رفع الحظر
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!fraudList.length && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    <Lock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    لا توجد بيانات أمان بعد
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -544,7 +805,7 @@ export default function AdminPage() {
               onChange={e => setEditPlan(p => p ? { ...p, plan: e.target.value } : null)}
             >
               {["free", "weekly", "monthly", "annual", "enterprise"].map(p => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>{PLAN_LABELS[p] ?? p}</option>
               ))}
             </select>
             <div className="flex gap-2">

@@ -68,6 +68,14 @@ export default function Chat() {
   useEffect(() => { fetchUsage(); }, [fetchUsage]);
 
   useEffect(() => {
+    const tracked = sessionStorage.getItem("ks_email_tracked");
+    if (tracked) return;
+    fetch("/api/user/track-email", { method: "POST" })
+      .then(r => { if (r.ok) sessionStorage.setItem("ks_email_tracked", "1"); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (conversation?.messages) setLocalMessages(conversation.messages);
     else if (!conversationId) setLocalMessages([]);
   }, [conversation?.messages, conversationId]);

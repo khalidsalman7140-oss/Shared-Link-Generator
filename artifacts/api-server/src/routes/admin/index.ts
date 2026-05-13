@@ -11,6 +11,7 @@ import {
   blockedUsers as blockedUsersTable,
   paymentRequests as paymentRequestsTable,
   announcements as announcementsTable,
+  emailFingerprints as emailFingerprintsTable,
 } from "@workspace/db";
 
 const ADMIN_EMAIL = process.env["ADMIN_EMAIL"] ?? "khalidsalman7140@gmail.com";
@@ -209,6 +210,23 @@ router.get("/admin/recent-activity", requireAdmin, async (_req: Request, res: Re
   const recentPayments = await db.select().from(paymentRequestsTable).where(eq(paymentRequestsTable.status, "pending")).orderBy(desc(paymentRequestsTable.createdAt)).limit(5);
   const recentRatings = await db.select().from(ratingsTable).orderBy(desc(ratingsTable.createdAt)).limit(5);
   res.json({ recentConvs, recentPayments, recentRatings });
+});
+
+router.get("/admin/fraud", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const list = await db.select().from(emailFingerprintsTable).orderBy(desc(emailFingerprintsTable.lastSeenAt)).limit(500);
+  res.json(list);
+});
+
+router.post("/admin/fraud/:id/unblock", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  await db.update(emailFingerprintsTable).set({ isBlocked: false }).where(eq(emailFingerprintsTable.id, id));
+  res.json({ success: true });
+});
+
+router.delete("/admin/fraud/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  await db.delete(emailFingerprintsTable).where(eq(emailFingerprintsTable.id, id));
+  res.json({ success: true });
 });
 
 export default router;

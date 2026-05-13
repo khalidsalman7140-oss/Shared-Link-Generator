@@ -1,0 +1,20 @@
+{
+  "name": "خالد سلمان — الوكيل الذكي",
+  "short_name": "وكيل خالد",
+  "description": "الوكيل الذكي لخالد سلمان — مدعوم بـ Gemini 2.5 Flash",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#7C3AED",
+  "background_color": "#07070f",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/favicon.svg", "sizes": "48x48", "type": "image/svg+xml" }
+  ],
+  "screenshots": [
+    { "src": "/opengraph.jpg", "sizes": "1200x630", "type": "image/jpeg", "form_factor": "wide" }
+  ]
+}

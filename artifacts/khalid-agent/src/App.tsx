@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -9,25 +9,35 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { I18nProvider } from "@/lib/i18n";
 import { InstallPWA } from "@/components/InstallPWA";
 import { RatingButton } from "@/components/RatingModal";
-import Chat from "@/pages/chat";
-import Services from "@/pages/services";
-import Landing from "@/pages/landing";
-import Pricing from "@/pages/pricing";
-import AdminPage from "@/pages/admin";
-import PaymentRequestPage from "@/pages/payment-request";
-import CareerMapPage from "@/pages/career-map";
-import GuestChatPage from "@/pages/guest-chat";
-import AboutPage from "@/pages/about";
-import VisionPage from "@/pages/vision";
-import HealthPage from "@/pages/health";
-import EducationPage from "@/pages/education";
-import TransportPage from "@/pages/transport";
-import RealEstatePage from "@/pages/real-estate";
-import RestaurantsPage from "@/pages/restaurants";
-import EmergencyPage from "@/pages/emergency";
-import SignInPage from "@/pages/sign-in";
-import SignUpPage from "@/pages/sign-up";
-import NotFound from "@/pages/not-found";
+
+const Chat = lazy(() => import("@/pages/chat"));
+const Services = lazy(() => import("@/pages/services"));
+const Landing = lazy(() => import("@/pages/landing"));
+const Pricing = lazy(() => import("@/pages/pricing"));
+const AdminPage = lazy(() => import("@/pages/admin"));
+const PaymentRequestPage = lazy(() => import("@/pages/payment-request"));
+const CareerMapPage = lazy(() => import("@/pages/career-map"));
+const GuestChatPage = lazy(() => import("@/pages/guest-chat"));
+const AboutPage = lazy(() => import("@/pages/about"));
+const VisionPage = lazy(() => import("@/pages/vision"));
+const HealthPage = lazy(() => import("@/pages/health"));
+const EducationPage = lazy(() => import("@/pages/education"));
+const TransportPage = lazy(() => import("@/pages/transport"));
+const RealEstatePage = lazy(() => import("@/pages/real-estate"));
+const RestaurantsPage = lazy(() => import("@/pages/restaurants"));
+const EmergencyPage = lazy(() => import("@/pages/emergency"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+const SignInPage = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+    <SignIn routing="path" path={`${basePath}/sign-in`} />
+  </div>
+);
+const SignUpPage = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+    <SignUp routing="path" path={`${basePath}/sign-up`} />
+  </div>
+);
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -93,6 +103,14 @@ const clerkAppearance = {
   },
 };
 
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
 function HomeRedirect() {
   return (
     <>
@@ -119,22 +137,6 @@ function ServicesRoute() {
       <Show when="signed-in"><AppLayout><Services /></AppLayout></Show>
       <Show when="signed-out"><Services /></Show>
     </>
-  );
-}
-
-function SignInRoute() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <SignIn routing="path" path={`${basePath}/sign-in`} />
-    </div>
-  );
-}
-
-function SignUpRoute() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <SignUp routing="path" path={`${basePath}/sign-up`} />
-    </div>
   );
 }
 
@@ -178,27 +180,29 @@ function AppRouter() {
         <ClerkQueryClientCacheInvalidator />
         <I18nProvider>
           <TooltipProvider>
-            <Switch>
-              <Route path="/" component={HomeRedirect} />
-              <Route path="/sign-in/*?" component={SignInRoute} />
-              <Route path="/sign-up/*?" component={SignUpRoute} />
-              <Route path="/chat" component={ChatRoute} />
-              <Route path="/services" component={ServicesRoute} />
-              <Route path="/pricing" component={Pricing} />
-              <Route path="/subscribe" component={PaymentRequestPage} />
-              <Route path="/career-map" component={CareerMapPage} />
-              <Route path="/guest-chat" component={GuestChatPage} />
-              <Route path="/about" component={AboutPage} />
-              <Route path="/vision" component={VisionPage} />
-              <Route path="/health" component={HealthPage} />
-              <Route path="/education" component={EducationPage} />
-              <Route path="/transport" component={TransportPage} />
-              <Route path="/real-estate" component={RealEstatePage} />
-              <Route path="/restaurants" component={RestaurantsPage} />
-              <Route path="/emergency" component={EmergencyPage} />
-              <Route path="/admin" component={AdminPage} />
-              <Route component={NotFound} />
-            </Switch>
+            <Suspense fallback={<PageLoader />}>
+              <Switch>
+                <Route path="/" component={HomeRedirect} />
+                <Route path="/sign-in/*?" component={SignInPage} />
+                <Route path="/sign-up/*?" component={SignUpPage} />
+                <Route path="/chat" component={ChatRoute} />
+                <Route path="/services" component={ServicesRoute} />
+                <Route path="/pricing" component={Pricing} />
+                <Route path="/subscribe" component={PaymentRequestPage} />
+                <Route path="/career-map" component={CareerMapPage} />
+                <Route path="/guest-chat" component={GuestChatPage} />
+                <Route path="/about" component={AboutPage} />
+                <Route path="/vision" component={VisionPage} />
+                <Route path="/health" component={HealthPage} />
+                <Route path="/education" component={EducationPage} />
+                <Route path="/transport" component={TransportPage} />
+                <Route path="/real-estate" component={RealEstatePage} />
+                <Route path="/restaurants" component={RestaurantsPage} />
+                <Route path="/emergency" component={EmergencyPage} />
+                <Route path="/admin" component={AdminPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </Suspense>
             <Toaster />
             <InstallPWA />
             <RatingButton />
