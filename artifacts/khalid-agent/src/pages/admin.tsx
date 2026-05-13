@@ -6,7 +6,7 @@ import {
   ChevronRight, Check, X, Trash2, Crown, Zap, Building2, Sparkles,
   Bell, ArrowLeft, Eye, Ban, RefreshCw, BarChart3, AlertCircle,
   Lock, Activity, ChevronDown, Mail, Phone, Send, Settings, Globe,
-  Megaphone, Database,
+  Megaphone, Database, Image, ImagePlus, ExternalLink, MousePointerClick,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -99,7 +99,20 @@ function PlanBadge({ plan }: { plan: string }) {
   );
 }
 
-type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security";
+interface AdItem {
+  id: number;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  sponsor: string;
+  position: string;
+  isActive: boolean;
+  clickCount: number;
+  createdAt: string;
+}
+
+type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -119,6 +132,9 @@ export default function AdminPage() {
   const [announcements, setAnnouncements] = useState<{ id: number; title: string; content: string; isActive: boolean }[]>([]);
   const [approvingId, setApprovingId] = useState<number | null>(null);
   const [userFilter, setUserFilter] = useState("");
+  const [adsList, setAdsList] = useState<AdItem[]>([]);
+  const [newAd, setNewAd] = useState({ title: "", description: "", imageUrl: "", linkUrl: "", sponsor: "خالد سلمان", position: "banner" });
+  const [adPreviewUrl, setAdPreviewUrl] = useState("");
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -153,12 +169,17 @@ export default function AdminPage() {
     if (r.ok) setFraudList(await r.json());
   }, []);
 
+  const fetchAds = useCallback(async () => {
+    const r = await fetch("/api/admin/ads-list");
+    if (r.ok) setAdsList(await r.json());
+  }, []);
+
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return; }
-    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud()])
+    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud(), fetchAds()])
       .catch(() => setError("فشل تحميل البيانات"))
       .finally(() => setLoading(false));
-  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud]);
+  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds]);
 
   const handleChangePlan = async () => {
     if (!editPlan) return;
@@ -258,6 +279,39 @@ export default function AdminPage() {
     await fetchFraud();
   };
 
+  const handleCreateAd = async () => {
+    if (!newAd.title) return;
+    await fetch("/api/admin/ads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: newAd.title,
+        description: newAd.description || undefined,
+        imageUrl: newAd.imageUrl || undefined,
+        linkUrl: newAd.linkUrl || undefined,
+        sponsor: newAd.sponsor || "خالد سلمان",
+        position: newAd.position || "banner",
+      }),
+    });
+    setNewAd({ title: "", description: "", imageUrl: "", linkUrl: "", sponsor: "خالد سلمان", position: "banner" });
+    setAdPreviewUrl("");
+    await fetchAds();
+  };
+
+  const handleToggleAd = async (id: number, isActive: boolean) => {
+    await fetch(`/api/admin/ads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !isActive }),
+    });
+    await fetchAds();
+  };
+
+  const handleDeleteAd = async (id: number) => {
+    await fetch(`/api/admin/ads/${id}`, { method: "DELETE" });
+    await fetchAds();
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -308,7 +362,8 @@ export default function AdminPage() {
     { id: "users", label: "المستخدمون", icon: Users, badge: users.length },
     { id: "payments", label: "المدفوعات", icon: CreditCard, badge: pendingPayments.length || undefined },
     { id: "ratings", label: "التقييمات", icon: Star, badge: ratings.length || undefined },
-    { id: "announcements", label: "الإعلانات", icon: Megaphone },
+    { id: "ads", label: "الإعلانات المصورة", icon: ImagePlus, badge: adsList.filter(a => a.isActive).length || undefined },
+    { id: "announcements", label: "الإشعارات", icon: Megaphone },
     { id: "security", label: "الأمان", icon: Shield, badge: suspiciousFraud.length || undefined },
   ];
 
@@ -700,6 +755,142 @@ export default function AdminPage() {
                 </div>
               ))}
               {!announcements.length && <p className="text-center text-muted-foreground py-8">لا توجد إعلانات</p>}
+            </div>
+          </div>
+        )}
+
+        {/* ADS */}
+        {tab === "ads" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <ImagePlus className="w-5 h-5 text-primary" />
+                الإعلانات المصورة — تظهر فوراً في التطبيق
+              </h2>
+              <Button size="sm" variant="outline" onClick={fetchAds}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+            </div>
+
+            {/* Create New Ad */}
+            <div className="bg-card border border-primary/30 rounded-xl p-5 space-y-3">
+              <h3 className="font-semibold text-sm text-primary flex items-center gap-2">
+                <ImagePlus className="w-4 h-4" />إضافة إعلان جديد — يظهر في التطبيق فوراً
+              </h3>
+              <div className="grid md:grid-cols-2 gap-3">
+                <input
+                  className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                  placeholder="عنوان الإعلان *"
+                  value={newAd.title}
+                  onChange={e => setNewAd(p => ({ ...p, title: e.target.value }))}
+                />
+                <input
+                  className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                  placeholder="وصف مختصر (اختياري)"
+                  value={newAd.description}
+                  onChange={e => setNewAd(p => ({ ...p, description: e.target.value }))}
+                />
+                <div className="space-y-1">
+                  <input
+                    className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                    placeholder="رابط الصورة (URL) — مثلاً: https://i.imgur.com/xxx.jpg"
+                    value={newAd.imageUrl}
+                    onChange={e => { setNewAd(p => ({ ...p, imageUrl: e.target.value })); setAdPreviewUrl(e.target.value); }}
+                  />
+                  {adPreviewUrl && (
+                    <div className="relative w-full h-24 rounded-lg overflow-hidden border border-border">
+                      <img src={adPreviewUrl} alt="معاينة" className="w-full h-full object-cover"
+                        onError={() => setAdPreviewUrl("")} />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <span className="text-white text-xs bg-black/50 px-2 py-1 rounded">معاينة الصورة</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input
+                  className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                  placeholder="رابط الضغط (اختياري) — مثلاً: https://wa.me/..."
+                  value={newAd.linkUrl}
+                  onChange={e => setNewAd(p => ({ ...p, linkUrl: e.target.value }))}
+                />
+                <input
+                  className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                  placeholder="اسم الجهة (مثلاً: خالد سلمان)"
+                  value={newAd.sponsor}
+                  onChange={e => setNewAd(p => ({ ...p, sponsor: e.target.value }))}
+                />
+                <select
+                  className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                  value={newAd.position}
+                  onChange={e => setNewAd(p => ({ ...p, position: e.target.value }))}>
+                  <option value="banner">بانر (في الصفحة الرئيسية)</option>
+                  <option value="sidebar">جانبي</option>
+                  <option value="popup">إشعار منبثق</option>
+                </select>
+              </div>
+              <Button onClick={handleCreateAd} disabled={!newAd.title} className="w-full md:w-auto">
+                <ImagePlus className="w-4 h-4 ml-1" />نشر الإعلان — يظهر فوراً ✅
+              </Button>
+            </div>
+
+            {/* Ads List */}
+            <div className="grid gap-3">
+              {adsList.map(a => (
+                <div key={a.id} className={cn("bg-card border rounded-xl overflow-hidden", a.isActive ? "border-primary/30" : "border-border opacity-60")}>
+                  <div className="flex gap-3 p-3">
+                    {a.imageUrl && (
+                      <div className="w-20 h-16 rounded-lg overflow-hidden border border-border shrink-0">
+                        <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      </div>
+                    )}
+                    {!a.imageUrl && (
+                      <div className="w-16 h-16 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Image className="w-6 h-6 text-primary/40" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">{a.title}</p>
+                          {a.description && <p className="text-xs text-muted-foreground truncate">{a.description}</p>}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-muted-foreground">{a.sponsor}</span>
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", a.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground")}>
+                              {a.isActive ? "نشط" : "موقوف"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                              <MousePointerClick className="w-2.5 h-2.5" />{a.clickCount}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          {a.linkUrl && (
+                            <a href={a.linkUrl} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          )}
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2"
+                            onClick={() => handleToggleAd(a.id, a.isActive)}>
+                            {a.isActive ? "إيقاف" : "تفعيل"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                            onClick={() => handleDeleteAd(a.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!adsList.length && (
+                <div className="text-center py-10 text-muted-foreground">
+                  <ImagePlus className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">لا توجد إعلانات مصورة بعد</p>
+                  <p className="text-xs mt-1">أضف إعلانك الأول وسيظهر في التطبيق فوراً</p>
+                </div>
+              )}
             </div>
           </div>
         )}

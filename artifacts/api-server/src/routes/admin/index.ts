@@ -12,6 +12,7 @@ import {
   paymentRequests as paymentRequestsTable,
   announcements as announcementsTable,
   emailFingerprints as emailFingerprintsTable,
+  ads as adsTable,
 } from "@workspace/db";
 
 const ADMIN_EMAIL = process.env["ADMIN_EMAIL"] ?? "khalidsalman7140@gmail.com";
@@ -210,6 +211,11 @@ router.get("/admin/recent-activity", requireAdmin, async (_req: Request, res: Re
   const recentPayments = await db.select().from(paymentRequestsTable).where(eq(paymentRequestsTable.status, "pending")).orderBy(desc(paymentRequestsTable.createdAt)).limit(5);
   const recentRatings = await db.select().from(ratingsTable).orderBy(desc(ratingsTable.createdAt)).limit(5);
   res.json({ recentConvs, recentPayments, recentRatings });
+});
+
+router.get("/admin/ads-list", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const list = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt)).limit(200);
+  res.json(list);
 });
 
 router.get("/admin/fraud", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
