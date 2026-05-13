@@ -6,6 +6,7 @@ import ratingsRouter from "./ratings";
 import paymentsRouter from "./payments";
 import adsRouter from "./ads";
 import userRouter from "./user";
+import bookingsRouter from "./bookings/index.js";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(ratingsRouter);
 router.use(paymentsRouter);
 router.use(adsRouter);
 router.use(userRouter);
+router.use(bookingsRouter);
 
 export default router;

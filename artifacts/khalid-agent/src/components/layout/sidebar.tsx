@@ -13,6 +13,7 @@ import {
   Crown,
   ChevronDown,
   Zap,
+  CalendarCheck,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -213,6 +214,19 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
         >
           <Crown className="h-4 w-4" />
           {t("pricing")}
+        </Link>
+
+        <Link
+          href="/booking"
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+            location === "/booking"
+              ? "bg-primary/20 text-primary font-medium"
+              : "hover:bg-primary/10 text-primary/80 hover:text-primary",
+          )}
+        >
+          <CalendarCheck className="h-4 w-4" />
+          احجز خدمة
         </Link>
       </div>
 

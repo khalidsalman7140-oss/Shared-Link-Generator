@@ -7,7 +7,7 @@ import {
   Bell, ArrowLeft, Eye, Ban, RefreshCw, BarChart3, AlertCircle,
   Lock, Activity, ChevronDown, Mail, Phone, Send, Settings, Globe,
   Megaphone, Database, Image, ImagePlus, ExternalLink, MousePointerClick,
-  KeyRound, LogIn, Loader2,
+  KeyRound, LogIn, Loader2, CalendarCheck, Clock, CheckCircle2, Circle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -114,7 +114,24 @@ interface AdItem {
   createdAt: string;
 }
 
-type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads";
+interface ServiceBooking {
+  id: number;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  phone: string;
+  serviceType: string;
+  serviceTitle: string;
+  description: string;
+  budget: string | null;
+  urgency: string;
+  status: string;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -142,6 +159,8 @@ export default function AdminPage() {
   const [adsList, setAdsList] = useState<AdItem[]>([]);
   const [newAd, setNewAd] = useState({ title: "", description: "", imageUrl: "", linkUrl: "", sponsor: "خالد سلمان", position: "banner" });
   const [adPreviewUrl, setAdPreviewUrl] = useState("");
+  const [bookings, setBookings] = useState<ServiceBooking[]>([]);
+  const [bookingNotes, setBookingNotes] = useState<Record<number, string>>({});
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -181,12 +200,17 @@ export default function AdminPage() {
     if (r.ok) setAdsList(await r.json());
   }, []);
 
+  const fetchBookings = useCallback(async () => {
+    const r = await fetch("/api/admin/bookings");
+    if (r.ok) setBookings(await r.json());
+  }, []);
+
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return; }
-    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud(), fetchAds()])
+    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud(), fetchAds(), fetchBookings()])
       .catch(() => setError("فشل تحميل البيانات"))
       .finally(() => setLoading(false));
-  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds]);
+  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds, fetchBookings]);
 
   const handleChangePlan = async () => {
     if (!editPlan) return;
@@ -434,10 +458,13 @@ export default function AdminPage() {
   );
   const suspiciousFraud = fraudList.filter(f => f.deleteCount >= 2 || f.isBlocked);
 
+  const pendingBookings = bookings.filter(b => b.status === "pending");
+
   const TABS: { id: Tab; label: string; icon: typeof BarChart3; badge?: number }[] = [
     { id: "overview", label: "نظرة عامة", icon: BarChart3 },
     { id: "users", label: "المستخدمون", icon: Users, badge: users.length },
     { id: "payments", label: "المدفوعات", icon: CreditCard, badge: pendingPayments.length || undefined },
+    { id: "bookings", label: "الحجوزات", icon: CalendarCheck, badge: pendingBookings.length || undefined },
     { id: "ratings", label: "التقييمات", icon: Star, badge: ratings.length || undefined },
     { id: "ads", label: "الإعلانات المصورة", icon: ImagePlus, badge: adsList.filter(a => a.isActive).length || undefined },
     { id: "announcements", label: "الإشعارات", icon: Megaphone },
@@ -969,6 +996,146 @@ export default function AdminPage() {
                   <p className="text-xs mt-1">أضف إعلانك الأول وسيظهر في التطبيق فوراً</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* BOOKINGS */}
+        {tab === "bookings" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5 text-primary" />
+                طلبات الخدمات ({bookings.length})
+              </h2>
+              <Button size="sm" variant="outline" onClick={fetchBookings}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "جديد", value: bookings.filter(b => b.status === "pending").length, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+                { label: "قيد المراجعة", value: bookings.filter(b => b.status === "reviewing").length, color: "text-blue-400", bg: "bg-blue-500/10" },
+                { label: "قيد التنفيذ", value: bookings.filter(b => b.status === "in-progress").length, color: "text-primary", bg: "bg-primary/10" },
+                { label: "مكتمل", value: bookings.filter(b => b.status === "completed").length, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+              ].map((c, i) => (
+                <div key={i} className={cn("rounded-xl p-3 border border-border", c.bg)}>
+                  <p className={cn("text-2xl font-extrabold", c.color)}>{c.value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {bookings.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <CalendarCheck className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  لا توجد طلبات حتى الآن
+                </div>
+              )}
+              {bookings.map(b => {
+                const urgencyMap: Record<string, { label: string; color: string }> = {
+                  normal: { label: "عادي", color: "text-muted-foreground bg-muted" },
+                  urgent: { label: "⚡ عاجل", color: "text-yellow-400 bg-yellow-500/10" },
+                  critical: { label: "🚨 عاجل جداً", color: "text-red-400 bg-red-500/10" },
+                };
+                const statusMap: Record<string, { label: string; color: string; icon: typeof Circle }> = {
+                  pending: { label: "جديد", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", icon: Clock },
+                  reviewing: { label: "قيد المراجعة", color: "text-blue-400 bg-blue-500/10 border-blue-500/30", icon: Eye },
+                  "in-progress": { label: "قيد التنفيذ", color: "text-primary bg-primary/10 border-primary/30", icon: Activity },
+                  completed: { label: "مكتمل", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", icon: CheckCircle2 },
+                  cancelled: { label: "ملغي", color: "text-muted-foreground bg-muted border-border", icon: X },
+                };
+                const statusInfo = statusMap[b.status] ?? statusMap["pending"]!;
+                const StatusIcon = statusInfo.icon;
+                const urgencyInfo = urgencyMap[b.urgency] ?? urgencyMap["normal"]!;
+                return (
+                  <div key={b.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full border flex items-center gap-1 font-medium", statusInfo.color)}>
+                            <StatusIcon className="w-3 h-3" />{statusInfo.label}
+                          </span>
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", urgencyInfo.color)}>
+                            {urgencyInfo.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">#{b.id}</span>
+                        </div>
+                        <p className="font-bold">{b.serviceTitle}</p>
+                        <p className="text-xs text-muted-foreground">{b.serviceType}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-muted-foreground">{new Date(b.createdAt).toLocaleDateString("ar")}</p>
+                        {b.budget && <p className="text-xs text-primary font-medium mt-0.5">{b.budget}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Phone className="w-3 h-3" />
+                        <a href={`https://wa.me/${b.phone.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
+                          className="text-emerald-400 hover:underline font-medium">{b.phone}</a>
+                      </div>
+                      {(b.userName || b.userEmail) && (
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Users className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{b.userName || b.userEmail}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-foreground/80 bg-background/50 rounded-lg p-2 border border-border/50 leading-relaxed">{b.description}</p>
+
+                    {b.adminNotes && (
+                      <div className="text-xs bg-primary/5 border border-primary/20 rounded-lg p-2 text-muted-foreground">
+                        <span className="text-primary font-medium">ملاحظتك: </span>{b.adminNotes}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 flex-wrap">
+                      <select
+                        value={b.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          await fetch(`/api/admin/bookings/${b.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: newStatus }),
+                          });
+                          await fetchBookings();
+                        }}
+                        className="bg-card border border-input rounded-lg px-2 py-1 text-xs flex-1"
+                      >
+                        {Object.entries(statusMap).map(([v, s]) => (
+                          <option key={v} value={v}>{s.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={bookingNotes[b.id] ?? b.adminNotes ?? ""}
+                        onChange={e => setBookingNotes(prev => ({ ...prev, [b.id]: e.target.value }))}
+                        placeholder="ملاحظة للمستخدم..."
+                        className="bg-card border border-input rounded-lg px-2 py-1 text-xs flex-1 min-w-[120px]"
+                      />
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                        onClick={async () => {
+                          await fetch(`/api/admin/bookings/${b.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ adminNotes: bookingNotes[b.id] ?? b.adminNotes ?? "" }),
+                          });
+                          await fetchBookings();
+                        }}>
+                        <Check className="w-3 h-3 ml-1" />حفظ
+                      </Button>
+                      <a href={`https://wa.me/${b.phone.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700">
+                          <Phone className="w-3 h-3 ml-1" />واتساب
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

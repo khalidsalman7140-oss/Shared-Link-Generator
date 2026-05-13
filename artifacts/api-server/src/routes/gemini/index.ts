@@ -267,7 +267,14 @@ router.get("/gemini/usage", requireAuth, async (req: Request, res: Response): Pr
   const userId = (req as AuthedRequest).userId;
   const plan = await getUserPlan(userId);
   const designTasksToday = plan === "free" ? await getDesignTaskCount(userId) : 0;
-  res.json({ plan, unlimited: plan !== "free", designTasksToday, designTaskLimit: 5 });
+  // Total messages for VIP system
+  const totalRows = await db
+    .select({ total: sql<number>`sum(${userUsageTable.messageCount})` })
+    .from(userUsageTable)
+    .where(eq(userUsageTable.userId, userId));
+  const totalMessages = Number(totalRows[0]?.total ?? 0);
+  const vipLevel = totalMessages >= 500 ? "gold" : totalMessages >= 100 ? "silver" : null;
+  res.json({ plan, unlimited: plan !== "free", designTasksToday, designTaskLimit: 5, totalMessages, vipLevel });
 });
 
 router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Request, res: Response): Promise<void> => {

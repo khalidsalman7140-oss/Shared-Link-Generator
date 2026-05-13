@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, decimal } from "drizzle-orm/pg-core";
 
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
@@ -76,6 +76,23 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const serviceBookings = pgTable("service_bookings", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  userEmail: text("user_email"),
+  userName: text("user_name"),
+  phone: text("phone").notNull(),
+  serviceType: text("service_type").notNull(),
+  serviceTitle: text("service_title").notNull(),
+  description: text("description").notNull(),
+  budget: text("budget"),
+  urgency: text("urgency").notNull().default("normal"),
+  status: text("status").notNull().default("pending"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Rating = typeof ratings.$inferSelect;
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
@@ -83,3 +100,4 @@ export type AppSetting = typeof appSettings.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
 export type Ad = typeof ads.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type ServiceBooking = typeof serviceBookings.$inferSelect;

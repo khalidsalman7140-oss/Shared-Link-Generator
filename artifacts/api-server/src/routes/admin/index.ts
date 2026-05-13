@@ -13,7 +13,9 @@ import {
   announcements as announcementsTable,
   emailFingerprints as emailFingerprintsTable,
   ads as adsTable,
+  serviceBookings as bookingsTable,
 } from "@workspace/db";
+import { notifyAdmin, notifyUser } from "../../utils/notify.js";
 
 const ADMIN_EMAIL = process.env["ADMIN_EMAIL"] ?? "khalidsalman7140@gmail.com";
 
@@ -189,6 +191,7 @@ router.patch("/admin/payments/:id", requireAdmin, async (req: Request, res: Resp
   await db.update(paymentRequestsTable).set({ status, reviewNotes: reviewNotes ?? null, reviewedAt: new Date() }).where(eq(paymentRequestsTable.id, paymentId));
   if (status === "approved" && payment.userId) {
     const planDays: Record<string, number> = { weekly: 7, monthly: 30, annual: 365, enterprise: 3650 };
+    const planNames: Record<string, string> = { weekly: "أسبوعي", monthly: "شهري", annual: "سنوي", enterprise: "مؤسسي" };
     const days = planDays[payment.planRequested] ?? 30;
     const validUntil = new Date(Date.now() + days * 86400000);
     const existing = await db.select().from(userPlansTable).where(eq(userPlansTable.userId, payment.userId));
@@ -197,6 +200,16 @@ router.patch("/admin/payments/:id", requireAdmin, async (req: Request, res: Resp
     } else {
       await db.insert(userPlansTable).values({ userId: payment.userId, plan: payment.planRequested, validUntil });
     }
+    // Notify user on phone
+    const planLabel = planNames[payment.planRequested] ?? payment.planRequested;
+    await notifyUser(payment.userId,
+      `✅ تم تفعيل اشتراكك في يمن شات`,
+      `تهانينا! تم تفعيل خطتك ${planLabel} بنجاح. يمكنك الآن الاستفادة من جميع الميزات المتقدمة.`,
+    );
+    await notifyAdmin(
+      `اشتراك جديد مُفعَّل — ${planLabel}`,
+      `المستخدم: ${payment.userEmail ?? payment.userId}\nالخطة: ${planLabel}\nصالح حتى: ${validUntil.toLocaleDateString("ar-YE")}`,
+    );
   }
   res.json({ success: true });
 });
@@ -220,6 +233,38 @@ router.patch("/admin/announcements/:id", requireAdmin, async (req: Request, res:
 
 router.delete("/admin/announcements/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   await db.delete(announcementsTable).where(eq(announcementsTable.id, parseInt(req.params["id"] as string)));
+  res.json({ success: true });
+});
+
+router.get("/admin/bookings", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const list = await db.select().from(bookingsTable).orderBy(desc(bookingsTable.createdAt)).limit(200);
+  res.json(list);
+});
+
+router.patch("/admin/bookings/:id", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  const { status, adminNotes } = req.body as { status?: string; adminNotes?: string };
+  const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id));
+  if (!booking) { res.status(404).json({ error: "Not found" }); return; }
+  await db.update(bookingsTable).set({
+    ...(status ? { status } : {}),
+    ...(adminNotes !== undefined ? { adminNotes } : {}),
+    updatedAt: new Date(),
+  }).where(eq(bookingsTable.id, id));
+  if (status && booking.userId) {
+    const statusLabel: Record<string, string> = {
+      reviewing: "قيد المراجعة",
+      "in-progress": "قيد التنفيذ",
+      completed: "مكتمل ✅",
+      cancelled: "ملغي",
+    };
+    if (statusLabel[status]) {
+      await notifyUser(booking.userId,
+        `تحديث طلبك #${id} — ${statusLabel[status]}`,
+        `طلب الخدمة: ${booking.serviceTitle}\nالحالة الجديدة: ${statusLabel[status]}${adminNotes ? `\nملاحظة: ${adminNotes}` : ""}`,
+      );
+    }
+  }
   res.json({ success: true });
 });
 

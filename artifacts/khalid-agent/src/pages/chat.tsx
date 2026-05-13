@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Send, Image as ImageIcon, Bot, User, Sparkles, X, Loader2,
-  Zap, Ban, Crown, Brain, Mic, MicOff, Bell,
+  Zap, Ban, Crown, Brain, Mic, MicOff, Bell, Trophy,
 } from "lucide-react";
 import { VoiceButton } from "@/components/VoiceButton";
 import { useI18n } from "@/lib/i18n";
@@ -52,6 +52,8 @@ export default function Chat() {
   const [streamingContent, setStreamingContent] = useState("");
   const [limitError, setLimitError] = useState<LimitError>(null);
   const [userPlan, setUserPlan] = useState<string>("free");
+  const [vipLevel, setVipLevel] = useState<"silver" | "gold" | null>(null);
+  const [planUpgradeToast, setPlanUpgradeToast] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<number>>(new Set());
@@ -62,17 +64,30 @@ export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const fetchUsage = useCallback(async () => {
+  const fetchUsage = useCallback(async (prevPlan?: string) => {
     try {
       const r = await fetch("/api/gemini/usage");
       if (r.ok) {
-        const data = await r.json() as { plan: string; unlimited: boolean };
+        const data = await r.json() as { plan: string; unlimited: boolean; vipLevel?: "silver" | "gold" | null };
+        if (prevPlan && prevPlan === "free" && data.plan !== "free") {
+          const planLabel: Record<string, string> = { weekly: "أسبوعي", monthly: "شهري", annual: "سنوي", enterprise: "مؤسسي" };
+          setPlanUpgradeToast(`🎉 تم تفعيل خطتك ${planLabel[data.plan] ?? data.plan}! استمتع بكل المميزات الآن.`);
+          setTimeout(() => setPlanUpgradeToast(null), 6000);
+        }
         setUserPlan(data.plan);
+        setVipLevel(data.vipLevel ?? null);
       }
     } catch {}
   }, []);
 
   useEffect(() => { fetchUsage(); }, [fetchUsage]);
+
+  // Poll for plan upgrades every 30 seconds
+  useEffect(() => {
+    let currentPlan = userPlan;
+    const interval = setInterval(() => { fetchUsage(currentPlan); currentPlan = userPlan; }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUsage, userPlan]);
 
   // Fetch active announcements
   useEffect(() => {
@@ -293,6 +308,17 @@ export default function Chat() {
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-transparent">
 
+      {/* Plan upgrade toast */}
+      {planUpgradeToast && (
+        <div className="mx-3 mt-2 px-4 py-2.5 rounded-xl border border-emerald-500/50 bg-emerald-500/10 flex items-start gap-3 text-sm animate-in slide-in-from-top duration-300 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+          <span className="text-xl shrink-0">🎉</span>
+          <p className="flex-1 text-emerald-300 font-medium">{planUpgradeToast}</p>
+          <button onClick={() => setPlanUpgradeToast(null)} className="text-muted-foreground hover:text-foreground shrink-0 transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Announcements banner */}
       {visibleAnnouncements.map(ann => (
         <div key={ann.id} className="mx-3 mt-2 px-4 py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/8 flex items-start gap-3 text-sm animate-in slide-in-from-top duration-300">
@@ -404,14 +430,24 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Plan badge */}
-          {userPlan !== "free" && (
-            <div className="mb-2 flex justify-end">
+          {/* Plan / VIP badge */}
+          <div className="mb-2 flex justify-end gap-2">
+            {vipLevel === "gold" && (
+              <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                <Trophy className="w-2.5 h-2.5" />VIP ذهبي
+              </span>
+            )}
+            {vipLevel === "silver" && (
+              <span className="text-[10px] bg-slate-400/10 text-slate-300 border border-slate-400/30 rounded-full px-2 py-0.5 flex items-center gap-1">
+                <Trophy className="w-2.5 h-2.5" />VIP فضي
+              </span>
+            )}
+            {userPlan !== "free" && (
               <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 flex items-center gap-1">
                 <Crown className="w-2.5 h-2.5" />{userPlan}
               </span>
-            </div>
-          )}
+            )}
+          </div>
 
           <form
             onSubmit={handleSubmit}
