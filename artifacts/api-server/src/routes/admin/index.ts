@@ -40,6 +40,17 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "الفاتح";
+
+router.post("/admin/verify-key", requireAdmin, (req: Request, res: Response): void => {
+  const { key } = req.body as { key?: string };
+  if (!key || key.trim() !== ADMIN_KEY) {
+    res.status(401).json({ error: "كلمة السر غير صحيحة" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
 router.get("/admin/stats", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const today = todayStr();
   const [
@@ -69,8 +80,14 @@ router.get("/admin/stats", requireAdmin, async (req: Request, res: Response): Pr
     ...usersInConversations.map(u => u.userId).filter(Boolean),
   ]);
 
+  const newUsersToday = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(emailFingerprintsTable)
+    .where(sql`date(used_trial_at) = ${today}`);
+
   res.json({
     totalUsers: uniqueUsers.size,
+    newUsersToday: Number(newUsersToday[0]?.count ?? 0),
     totalConversations: Number(totalConversations[0]?.count ?? 0),
     totalMessages: Number(totalMessages[0]?.count ?? 0),
     messagesToday: Number(messagesToday[0]?.total ?? 0),

@@ -51,10 +51,11 @@ export default function AboutPage() {
             <div className="shrink-0">
               <div className="relative">
                 <div className="absolute -inset-2 rounded-full bg-primary/20 blur-lg" />
-                <div className="relative w-36 h-36 rounded-full border-4 border-primary/50 overflow-hidden bg-primary/10 shadow-[0_0_50px_rgba(124,58,237,0.5)]">
-                  <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="w-full h-full object-cover object-top"
+                <div className="relative w-52 h-52 rounded-2xl border-4 border-primary/60 overflow-hidden bg-gradient-to-br from-primary/20 to-amber-500/10 shadow-[0_0_80px_rgba(124,58,237,0.6)]">
+                  <div className="absolute inset-0 flex items-center justify-center font-black text-6xl text-primary/30 select-none">خ</div>
+                  <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="absolute inset-0 w-full h-full object-cover object-top"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  <div className="absolute inset-0 flex items-center justify-center font-black text-5xl text-primary">KS</div>
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
                 </div>
               </div>
             </div>

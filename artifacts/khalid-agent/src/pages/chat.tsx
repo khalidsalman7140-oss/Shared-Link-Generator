@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Send, Image as ImageIcon, Bot, User, Sparkles, X, Loader2,
-  Zap, Ban, Crown, Brain,
+  Zap, Ban, Crown, Brain, Mic, MicOff, Bell,
 } from "lucide-react";
-import { VoiceButton, GlobalVoiceToggle } from "@/components/VoiceButton";
+import { VoiceButton } from "@/components/VoiceButton";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+interface Announcement { id: number; title: string; content: string; isActive: boolean; }
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -50,6 +52,11 @@ export default function Chat() {
   const [streamingContent, setStreamingContent] = useState("");
   const [limitError, setLimitError] = useState<LimitError>(null);
   const [userPlan, setUserPlan] = useState<string>("free");
+  const [isListening, setIsListening] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<number>>(new Set());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +73,48 @@ export default function Chat() {
   }, []);
 
   useEffect(() => { fetchUsage(); }, [fetchUsage]);
+
+  // Fetch active announcements
+  useEffect(() => {
+    fetch("/api/announcements")
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Announcement[]) => setAnnouncements(data.filter(a => a.isActive)))
+      .catch(() => {});
+  }, []);
+
+  // Speech Recognition (mic input)
+  const toggleMic = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SpeechRec = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert(lang === "ar" ? "متصفحك لا يدعم التعرف على الصوت. استخدم Chrome." : "Your browser doesn't support speech recognition. Use Chrome.");
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.lang = lang === "ar" ? "ar-YE" : lang === "fr" ? "fr-FR" : lang === "tr" ? "tr-TR" : lang === "es" ? "es-ES" : "en-US";
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    let finalTranscript = input;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i]?.[0]?.transcript ?? "";
+        if (e.results[i]?.isFinal) finalTranscript += t;
+        else interim = t;
+      }
+      setInput(finalTranscript + interim);
+    };
+    rec.onend = () => { setIsListening(false); setInput(finalTranscript); };
+    rec.onerror = () => { setIsListening(false); };
+    recognitionRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  }, [isListening, input, lang]);
 
   useEffect(() => {
     const tracked = sessionStorage.getItem("ks_email_tracked");
@@ -239,8 +288,26 @@ export default function Chat() {
     </div>
   );
 
+  const visibleAnnouncements = announcements.filter(a => !dismissedAnnIds.has(a.id));
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-transparent">
+
+      {/* Announcements banner */}
+      {visibleAnnouncements.map(ann => (
+        <div key={ann.id} className="mx-3 mt-2 px-4 py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/8 flex items-start gap-3 text-sm animate-in slide-in-from-top duration-300">
+          <Bell className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            {ann.title && <p className="font-semibold text-amber-400 text-xs mb-0.5">{ann.title}</p>}
+            <p className="text-foreground/80 text-xs leading-relaxed">{ann.content}</p>
+          </div>
+          <button onClick={() => setDismissedAnnIds(prev => new Set([...prev, ann.id]))}
+            className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5 transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+
       {/* Blocked notice */}
       {isBlocked && (
         <div className="mx-4 mt-3 px-4 py-3 rounded-xl border bg-destructive/10 border-destructive/40 flex items-start gap-3 text-sm text-destructive">
@@ -363,11 +430,24 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isBlocked ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended") : t("sendMessage")}
+              placeholder={isBlocked ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended") : isListening ? (lang === "ar" ? "🎤 يستمع..." : "🎤 Listening...") : t("sendMessage")}
               className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base"
               rows={1}
               disabled={isStreaming || isBlocked}
             />
+            {/* Mic button */}
+            <Button type="button" variant="ghost" size="icon"
+              className={cn(
+                "shrink-0 rounded-full h-10 w-10 transition-all",
+                isListening
+                  ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 animate-pulse ring-2 ring-red-500/30"
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/10",
+              )}
+              onClick={toggleMic}
+              disabled={isStreaming || isBlocked}
+              title={lang === "ar" ? "تحدث بصوتك" : "Speak"}>
+              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </Button>
             <Button type="submit" size="icon"
               className="shrink-0 rounded-full h-10 w-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.6)]"
               disabled={(!input.trim() && !selectedImage) || isStreaming || isBlocked}>

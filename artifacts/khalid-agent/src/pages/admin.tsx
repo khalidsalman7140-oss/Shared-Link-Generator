@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import {
@@ -7,6 +7,7 @@ import {
   Bell, ArrowLeft, Eye, Ban, RefreshCw, BarChart3, AlertCircle,
   Lock, Activity, ChevronDown, Mail, Phone, Send, Settings, Globe,
   Megaphone, Database, Image, ImagePlus, ExternalLink, MousePointerClick,
+  KeyRound, LogIn, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ const ADMIN_EMAIL = "khalidsalman7140@gmail.com";
 
 interface Stats {
   totalUsers: number;
+  newUsersToday: number;
   totalConversations: number;
   totalMessages: number;
   messagesToday: number;
@@ -125,6 +127,11 @@ export default function AdminPage() {
   const [fraudList, setFraudList] = useState<FraudEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(() => sessionStorage.getItem("ks_admin_unlocked") === "1");
+  const [adminKey, setAdminKey] = useState("");
+  const [adminKeyError, setAdminKeyError] = useState("");
+  const [adminKeyLoading, setAdminKeyLoading] = useState(false);
+  const adminKeyRef = useRef<HTMLInputElement>(null);
   const [editPlan, setEditPlan] = useState<{ userId: string; plan: string } | null>(null);
   const [paymentReview, setPaymentReview] = useState<{ id: number; status: string; notes: string } | null>(null);
   const [viewReceipt, setViewReceipt] = useState<string | null>(null);
@@ -340,6 +347,76 @@ export default function AdminPage() {
     );
   }
 
+  if (!adminUnlocked) {
+    const handleVerify = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!adminKey.trim()) return;
+      setAdminKeyLoading(true);
+      setAdminKeyError("");
+      try {
+        const r = await fetch("/api/admin/verify-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: adminKey.trim() }),
+        });
+        if (r.ok) {
+          sessionStorage.setItem("ks_admin_unlocked", "1");
+          setAdminUnlocked(true);
+        } else {
+          setAdminKeyError("كلمة السر غير صحيحة — حاول مجدداً");
+          setAdminKey("");
+          setTimeout(() => adminKeyRef.current?.focus(), 50);
+        }
+      } catch {
+        setAdminKeyError("فشل الاتصال — تحقق من الإنترنت");
+      } finally {
+        setAdminKeyLoading(false);
+      }
+    };
+    return (
+      <div dir="rtl" className="min-h-screen bg-[#07070f] flex items-center justify-center px-4"
+        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.3) 0%, transparent 60%), #07070f" }}>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8 space-y-3">
+            <div className="text-5xl mb-4">☪️</div>
+            <div className="text-amber-400 text-2xl font-medium" style={{ fontFamily: "'Cairo', serif" }}>﷽</div>
+            <div className="w-16 h-16 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(124,58,237,0.4)]">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-white">لوحة تحكم خالد سلمان</h1>
+            <p className="text-muted-foreground text-sm">أدخل كلمة السر للوصول إلى الإدارة الكاملة</p>
+          </div>
+          <form onSubmit={handleVerify} className="space-y-4">
+            <div className="relative">
+              <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input
+                ref={adminKeyRef}
+                autoFocus
+                type="password"
+                value={adminKey}
+                onChange={e => setAdminKey(e.target.value)}
+                placeholder="أدخل كلمة السر..."
+                className="w-full bg-card border border-input rounded-xl pr-11 pl-4 py-3.5 text-right text-base font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder:text-muted-foreground/50"
+                style={{ direction: "rtl" }}
+                autoComplete="current-password"
+              />
+            </div>
+            {adminKeyError && (
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {adminKeyError}
+              </div>
+            )}
+            <Button type="submit" className="w-full h-12 text-base gap-2 shadow-lg shadow-primary/30" disabled={!adminKey.trim() || adminKeyLoading}>
+              {adminKeyLoading ? <><Loader2 className="w-5 h-5 animate-spin" />جاري التحقق...</> : <><LogIn className="w-5 h-5" />دخول لوحة التحكم</>}
+            </Button>
+          </form>
+          <p className="text-center text-xs text-muted-foreground/50 mt-6">يمن شات — الوكيل الذكي © 2026</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -438,12 +515,13 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
+                { label: "مستخدمون جدد اليوم 🆕", value: stats.newUsersToday, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", highlight: stats.newUsersToday > 0 },
                 { label: "إجمالي المستخدمين", value: stats.totalUsers, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
                 { label: "رسائل اليوم", value: stats.messagesToday, icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
-                { label: "إجمالي المحادثات", value: stats.totalConversations, icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                { label: "إجمالي المحادثات", value: stats.totalConversations, icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-500/10" },
                 { label: "معدل التقييم", value: `${stats.avgRating}⭐`, icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10" },
                 { label: "طلبات دفع معلقة", value: stats.pendingPayments, icon: CreditCard, color: "text-orange-400", bg: "bg-orange-500/10" },
-                { label: "إجمالي الرسائل", value: stats.totalMessages, icon: Database, color: "text-purple-400", bg: "bg-purple-500/10" },
+                { label: "إجمالي الرسائل", value: stats.totalMessages, icon: Database, color: "text-sky-400", bg: "bg-sky-500/10" },
                 { label: "مستخدمون محظورون", value: stats.totalBlocked, icon: Ban, color: "text-destructive", bg: "bg-destructive/10" },
                 { label: "تنبيهات أمنية", value: suspiciousFraud.length, icon: Shield, color: "text-red-400", bg: "bg-red-500/10" },
               ].map((card, i) => {
