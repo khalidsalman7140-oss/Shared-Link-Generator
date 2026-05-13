@@ -1,6 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <circle cx="60" cy="60" r="58" fill="#0A0B14" stroke="#7C3AED" stroke-width="2"/>
-  <circle cx="60" cy="60" r="48" fill="rgba(124,58,237,0.08)"/>
-  <text x="60" y="72" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#7C3AED" text-anchor="middle" letter-spacing="-1">KS</text>
-  <circle cx="60" cy="60" r="57" fill="none" stroke="rgba(124,58,237,0.3)" stroke-width="1"/>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a0a2e"/>
+      <stop offset="100%" stop-color="#07070f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="rgba(124,58,237,0.4)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <linearGradient id="crescent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg)" stroke="#7C3AED" stroke-width="1.5"/>
+  <circle cx="60" cy="60" r="58" fill="url(#glow)"/>
+  <!-- Outer decorative ring -->
+  <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(124,58,237,0.25)" stroke-width="0.5" stroke-dasharray="3 4"/>
+  <!-- Crescent moon -->
+  <circle cx="58" cy="42" r="17" fill="url(#crescent)"/>
+  <circle cx="66" cy="38" r="13" fill="#07070f"/>
+  <!-- Star (5-pointed) -->
+  <g transform="translate(78, 28)">
+    <polygon points="5,0 6.18,3.82 10,3.82 7,6.18 8.09,10 5,7.64 1.91,10 3,6.18 0,3.82 3.82,3.82" fill="#f59e0b" opacity="0.9"/>
+  </g>
+  <!-- Small decorative stars -->
+  <circle cx="30" cy="30" r="1.2" fill="#a78bfa" opacity="0.6"/>
+  <circle cx="88" cy="55" r="0.9" fill="#f59e0b" opacity="0.5"/>
+  <circle cx="25" cy="70" r="0.8" fill="#a78bfa" opacity="0.4"/>
+  <circle cx="92" cy="78" r="1" fill="#f59e0b" opacity="0.4"/>
+  <!-- Arabic text: يمن شات -->
+  <text x="60" y="79" font-family="'Cairo', 'Tahoma', Arial, sans-serif" font-size="14" font-weight="800" fill="white" text-anchor="middle" letter-spacing="0.5">يمن شات</text>
+  <!-- Bottom tagline -->
+  <text x="60" y="94" font-family="'Cairo', 'Tahoma', Arial, sans-serif" font-size="6.5" font-weight="500" fill="rgba(167,139,250,0.8)" text-anchor="middle">YEMEN CHAT</text>
+  <!-- Bottom decorative line -->
+  <line x1="30" y1="100" x2="90" y2="100" stroke="url(#crescent)" stroke-width="0.5" opacity="0.4"/>
 </svg>

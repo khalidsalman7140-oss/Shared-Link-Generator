@@ -4,7 +4,7 @@ export type Lang = "ar" | "en" | "fr" | "tr" | "es";
 
 const translations: Record<Lang, Record<string, string>> = {
   ar: {
-    appName: "الوكيل الذكي لخالد سلمان",
+    appName: "يمن شات — الوكيل الذكي",
     tagline: "نبني مهاراتك.. لنبني اليمن",
     taglineSub: "دردش مجاناً — المهام الكبيرة بخطة مدفوعة",
     newChat: "محادثة جديدة",
@@ -15,7 +15,7 @@ const translations: Record<Lang, Record<string, string>> = {
     signOut: "تسجيل الخروج",
     contact: "تواصل معي",
     sendMessage: "اكتب رسالتك هنا...",
-    copyright: "© 2025 خالد سلمان. جميع الحقوق محفوظة.",
+    copyright: "© 2026 يمن شات — خالد سلمان. جميع الحقوق محفوظة.",
     upgradeNow: "ترقية الاشتراك",
     freePlan: "الخطة المجانية",
     weeklyPlan: "الخطة الأسبوعية",
@@ -30,7 +30,7 @@ const translations: Record<Lang, Record<string, string>> = {
     noConversations: "لا توجد محادثات سابقة",
     loading: "جاري التحميل...",
     aiDisclaimer: "الذكاء الاصطناعي قد يخطئ أحياناً. يرجى التحقق من المعلومات المهمة.",
-    heroTitle: "الوكيل الذكي لخالد سلمان",
+    heroTitle: "يمن شات — الوكيل الذكي",
     heroSubtitle: "نبني مهاراتك.. لنبني اليمن",
     heroDesc: "دردش واستشر مجاناً بلا حدود — الخدمات الثقيلة (مواقع، تطبيقات، تصاميم) بخطة مدفوعة",
     featuresTitle: "ما يمكنني مساعدتك به",

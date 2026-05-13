@@ -1,7 +1,7 @@
 {
-  "name": "خالد سلمان — الوكيل الذكي",
-  "short_name": "وكيل خالد",
-  "description": "الوكيل الذكي لخالد سلمان — مدعوم بـ Gemini 2.5 Flash",
+  "name": "يمن شات — الوكيل الذكي",
+  "short_name": "يمن شات",
+  "description": "يمن شات — الوكيل الذكي لخالد سلمان، مدعوم بـ Gemini 2.5 Flash. نبني مهاراتك.. لنبني اليمن.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

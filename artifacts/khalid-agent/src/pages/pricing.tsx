@@ -1,11 +1,18 @@
 import { Link } from "wouter";
-import { Check, ArrowRight, Sparkles, Zap, Crown, Star, Building2 } from "lucide-react";
+import { Check, ArrowRight, Sparkles, Zap, Crown, Star, Building2, Banknote, Copy, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const WA_NUMBER = "967783701365";
+
+const KRIMIA_ACCOUNTS = [
+  { id: "1399395113", currency: "SAR", flag: "🇸🇦", label: "ريال سعودي" },
+  { id: "3199288608", currency: "USD", flag: "🇺🇸", label: "دولار أمريكي" },
+  { id: "3091144017", currency: "SAR", flag: "🇸🇦", label: "ريال سعودي (2)" },
+];
 
 function waLink(plan: string, lang: string) {
   const msgs: Record<string, string> = {
@@ -20,6 +27,13 @@ function waLink(plan: string, lang: string) {
 
 export default function Pricing() {
   const { t, lang, isRTL } = useI18n();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedId(text);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const plans = [
     {
@@ -260,6 +274,83 @@ export default function Pricing() {
           })}
         </div>
 
+        {/* ── KRIMIA PAYMENT SECTION ── */}
+        <div className="mb-12 max-w-3xl mx-auto">
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
+            <div className="px-6 py-5 border-b border-amber-500/20 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <Banknote className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-400">
+                  {lang === "ar" ? "الدفع عبر تحويل كريمي" : "Pay via Krimia Transfer"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {lang === "ar"
+                    ? "حوّل المبلغ على أحد الحسابات التالية ثم أرسل لقطة الشاشة عبر واتساب لتفعيل الاشتراك فوراً"
+                    : "Transfer the amount to one of the accounts below then send a screenshot via WhatsApp to activate your subscription instantly"}
+                </p>
+              </div>
+            </div>
+            <div className="p-6 grid gap-3 sm:grid-cols-3">
+              {KRIMIA_ACCOUNTS.map((acc) => (
+                <div key={acc.id} className="bg-card rounded-xl border border-amber-500/20 p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{acc.flag}</span>
+                    <div>
+                      <div className="text-xs text-muted-foreground">{lang === "ar" ? "العملة" : "Currency"}</div>
+                      <div className="font-bold text-amber-400 text-sm">{acc.currency} — {acc.label}</div>
+                    </div>
+                  </div>
+                  <div className="bg-background rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                    <span className="font-mono font-bold text-foreground text-sm tracking-widest">{acc.id}</span>
+                    <button
+                      onClick={() => handleCopy(acc.id)}
+                      className="text-muted-foreground hover:text-amber-400 transition-colors shrink-0"
+                      title={lang === "ar" ? "نسخ رقم الحساب" : "Copy account number"}
+                    >
+                      {copiedId === acc.id
+                        ? <CheckCheck className="w-4 h-4 text-emerald-400" />
+                        : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    {lang === "ar" ? "رقم حساب الكريمي" : "Krimia account number"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 pb-5">
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4">
+                <p className="text-sm text-emerald-400 font-medium mb-2">
+                  {lang === "ar" ? "⚡ بعد التحويل — كيف تفعّل اشتراكك؟" : "⚡ After transfer — how to activate?"}
+                </p>
+                <ol className={cn("text-xs text-muted-foreground space-y-1", isRTL ? "list-arabic" : "list-decimal list-inside")}>
+                  <li className="flex gap-1.5"><span className="text-emerald-400 font-bold">١.</span>{lang === "ar" ? "صوّر وصل التحويل من تطبيق الكريمي" : "Screenshot the transfer receipt from Krimia app"}</li>
+                  <li className="flex gap-1.5"><span className="text-emerald-400 font-bold">٢.</span>{lang === "ar" ? "أرسلها على واتساب مع اسم الخطة المطلوبة" : "Send it on WhatsApp with the requested plan name"}</li>
+                  <li className="flex gap-1.5"><span className="text-emerald-400 font-bold">٣.</span>{lang === "ar" ? "يتم تفعيل اشتراكك فوراً خلال دقائق" : "Your subscription is activated instantly within minutes"}</li>
+                </ol>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <a href={`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lang === "ar" ? "السلام عليكم، أريد تفعيل اشتراك — معي وصل التحويل" : "Hello, I want to activate a subscription — I have the transfer receipt")}`}
+                    target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" className="text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5">
+                      <span>📱</span>
+                      {lang === "ar" ? "واتساب: +967 783 701 365" : "WhatsApp: +967 783 701 365"}
+                    </Button>
+                  </a>
+                  <a href={`https://wa.me/967779435445?text=${encodeURIComponent(lang === "ar" ? "السلام عليكم، أريد تفعيل اشتراك — معي وصل التحويل" : "Hello, I want to activate a subscription — I have the transfer receipt")}`}
+                    target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="outline" className="text-xs border-emerald-500/40 text-emerald-400 gap-1.5">
+                      <span>📱</span>
+                      {lang === "ar" ? "واتساب: +967 779 435 445" : "WhatsApp: +967 779 435 445"}
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="text-center space-y-4">
           <p className="text-muted-foreground text-sm">
             {lang === "ar"
@@ -267,20 +358,12 @@ export default function Pricing() {
               : "For subscription inquiries, contact via WhatsApp or Telegram"}
           </p>
           <div className="flex justify-center gap-4 flex-wrap">
-            <a
-              href={`https://wa.me/${WA_NUMBER}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-            >
+            <a href={`https://wa.me/${WA_NUMBER}`} target="_blank" rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 transition-colors text-sm font-medium">
               WhatsApp: +967 783 701 365
             </a>
-            <a
-              href="https://t.me/kshskshg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-            >
+            <a href="https://t.me/kshskshg" target="_blank" rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 transition-colors text-sm font-medium">
               Telegram: @kshskshg
             </a>
           </div>

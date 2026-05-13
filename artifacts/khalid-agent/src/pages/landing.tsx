@@ -53,13 +53,15 @@ export default function Landing() {
       <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
       {/* Gradient overlays */}
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,58,237,0.35) 0%, transparent 65%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(234,179,8,0.12) 0%, transparent 50%)" }} />
+      {/* Islamic geometric pattern overlay */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z' fill='none' stroke='%23a78bfa' stroke-width='0.5'/%3E%3Cpath d='M30 10 L50 30 L30 50 L10 30 Z' fill='none' stroke='%23f59e0b' stroke-width='0.5'/%3E%3Ccircle cx='30' cy='30' r='8' fill='none' stroke='%23a78bfa' stroke-width='0.4'/%3E%3C/svg%3E")`, backgroundSize: "60px 60px" }} />
 
       {/* ─── NAV ─── */}
       <nav className="relative z-50 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <Link href="/">
           <div className="flex items-center gap-2.5 cursor-pointer">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center font-black text-white text-sm shadow-lg shadow-primary/40">KS</div>
-            <span className="font-bold text-base hidden sm:block">{isRTL ? "خالد سلمان" : "Khaled Salman"}</span>
+            <img src="/logo.svg" alt="يمن شات" className="w-9 h-9 rounded-xl shadow-lg shadow-primary/40" />
+            <span className="font-bold text-base hidden sm:block">{isRTL ? "يمن شات" : "Yemen Chat"}</span>
           </div>
         </Link>
         <div className="flex items-center gap-2">
@@ -86,21 +88,26 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-primary font-medium shadow-lg shadow-primary/10 backdrop-blur-sm">
-            <Sparkles className="w-3.5 h-3.5" />
-            {isRTL ? "مدعوم بـ Gemini 2.5 Flash" : "Powered by Gemini 2.5 Flash"}
+          {/* Islamic Bismillah badge */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-amber-400/80 text-lg font-medium tracking-widest" style={{ fontFamily: "'Cairo', 'Noto Naskh Arabic', serif" }}>
+              ﷽
+            </div>
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-primary font-medium shadow-lg shadow-primary/10 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5" />
+              {isRTL ? "مدعوم بـ Gemini 2.5 Flash" : "Powered by Gemini 2.5 Flash"}
+            </div>
           </div>
 
           {/* Title */}
           <div className="space-y-3">
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-tight"
-              style={{ background: "linear-gradient(135deg, #fff 30%, #a78bfa 65%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {isRTL ? "الوكيل الذكي" : "AI Agent"}
+              style={{ background: "linear-gradient(135deg, #fff 20%, #a78bfa 55%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              {isRTL ? "يمن شات" : "Yemen Chat"}
             </h1>
-            <h2 className="text-3xl md:text-4xl font-bold"
+            <h2 className="text-2xl md:text-3xl font-bold"
               style={{ background: "linear-gradient(90deg, #a78bfa, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {isRTL ? "لخالد سلمان" : "by Khaled Salman"}
+              {isRTL ? "الوكيل الذكي — خالد سلمان" : "AI Agent by Khaled Salman"}
             </h2>
             <p className="text-xl md:text-2xl font-semibold text-amber-400/90">{t("tagline")}</p>
             <p className="text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed">{t("heroDesc")}</p>
@@ -340,8 +347,8 @@ export default function Landing() {
       <footer className="relative z-10 border-t border-border py-8 px-4">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center font-black text-white text-xs">KS</div>
-            <span>{isRTL ? "خالد سلمان" : "Khaled Salman"}</span>
+            <img src="/logo.svg" alt="يمن شات" className="w-7 h-7 rounded-lg" />
+            <span>{isRTL ? "يمن شات" : "Yemen Chat"}</span>
           </div>
           <div className="flex flex-wrap gap-3 text-xs justify-center">
             <Link href="/about"><span className="hover:text-foreground cursor-pointer">{isRTL ? "عن خالد" : "About"}</span></Link>
@@ -355,7 +362,7 @@ export default function Landing() {
             <Link href="/restaurants"><span className="hover:text-red-400 cursor-pointer">{isRTL ? "المطاعم" : "Restaurants"}</span></Link>
             <Link href="/emergency"><span className="hover:text-orange-400 cursor-pointer">{isRTL ? "الطوارئ" : "Emergency"}</span></Link>
           </div>
-          <span className="text-xs">© 2026 {isRTL ? "خالد سلمان. جميع الحقوق محفوظة." : "Khaled Salman. All rights reserved."}</span>
+          <span className="text-xs">© 2026 {isRTL ? "يمن شات — خالد سلمان. جميع الحقوق محفوظة." : "Yemen Chat — Khaled Salman. All rights reserved."}</span>
         </div>
       </footer>
     </div>
