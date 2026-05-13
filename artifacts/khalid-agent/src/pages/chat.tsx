@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation, useSearch, Link } from "wouter";
 import {
   useGetGeminiConversation,
   getGetGeminiConversationQueryKey,
@@ -17,6 +17,9 @@ import {
   Sparkles,
   X,
   Loader2,
+  Zap,
+  AlertTriangle,
+  Ban,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -29,6 +32,13 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = (err) => reject(err);
   });
 
+interface UsageInfo {
+  plan: string;
+  usageToday: number;
+  limit: number | null;
+  isExpired: boolean;
+}
+
 export default function Chat() {
   const searchString = useSearch();
   const queryParams = new URLSearchParams(searchString);
@@ -37,7 +47,7 @@ export default function Chat() {
 
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, lang } = useI18n();
 
   const { data: conversation, isLoading: isConvLoading } = useGetGeminiConversation(
     conversationId || 0,
@@ -62,10 +72,29 @@ export default function Chat() {
   >([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [usageInfo, setUsageInfo] = useState<UsageInfo | null>(null);
+  const [limitError, setLimitError] = useState<{ type: "blocked" | "limit_exceeded"; message: string } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const fetchUsage = useCallback(async () => {
+    try {
+      const r = await fetch("/api/gemini/usage");
+      if (r.ok) {
+        const data = await r.json() as UsageInfo;
+        setUsageInfo(data);
+        if (data.plan === "free" && data.limit !== null && data.usageToday >= data.limit) {
+          setLimitError({ type: "limit_exceeded", message: lang === "ar" ? `استنفدت حصتك اليومية (${data.usageToday}/${data.limit} رسائل)` : `Daily limit reached (${data.usageToday}/${data.limit})` });
+        } else {
+          setLimitError(null);
+        }
+      }
+    } catch {}
+  }, [lang]);
+
+  useEffect(() => { fetchUsage(); }, [fetchUsage]);
 
   useEffect(() => {
     if (conversation?.messages) {
@@ -112,6 +141,16 @@ export default function Chat() {
         },
       );
 
+      if (response.status === 429 || response.status === 403) {
+        const errData = await response.json() as { error: string; message?: string };
+        setLocalMessages((prev) => prev.filter(m => m.id !== tempId));
+        setLimitError({
+          type: errData.error === "blocked" ? "blocked" : "limit_exceeded",
+          message: errData.message ?? (lang === "ar" ? "حدث خطأ" : "An error occurred"),
+        });
+        return;
+      }
+
       if (!response.ok) throw new Error("Failed to send message");
       if (!response.body) throw new Error("No response body");
 
@@ -129,7 +168,7 @@ export default function Chat() {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const data = JSON.parse(line.slice(6)) as { content?: string; done?: boolean; error?: string };
               if (data.content) {
                 fullAssistantContent += data.content;
                 setStreamingContent(fullAssistantContent);
@@ -139,17 +178,17 @@ export default function Chat() {
         }
       }
 
+      await fetchUsage();
       queryClient.invalidateQueries({
         queryKey: getGetGeminiConversationQueryKey(targetConvId),
       });
-    } catch (error) {
+    } catch {
       setLocalMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
           role: "assistant",
-          content:
-            "عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.",
+          content: lang === "ar" ? "عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى." : "Sorry, an error occurred. Please try again.",
         },
       ]);
     } finally {
@@ -162,6 +201,7 @@ export default function Chat() {
     e?.preventDefault();
     if (!input.trim() && !selectedImage) return;
     if (isStreaming) return;
+    if (limitError) return;
 
     let messageContent = input.trim();
     if (selectedImage) {
@@ -193,6 +233,11 @@ export default function Chat() {
   const displayContent = (content: string) =>
     content.replace(/\[IMAGE:[^\]]+\]/g, isRTL ? "[📷 صورة مرفقة]" : "[📷 Image attached]").trim();
 
+  const isLimitReached = limitError?.type === "limit_exceeded";
+  const isBlocked = limitError?.type === "blocked";
+  const isFreeNearLimit = usageInfo?.plan === "free" && usageInfo.limit !== null &&
+    usageInfo.usageToday >= usageInfo.limit - 1 && !isLimitReached;
+
   const WelcomeScreen = () => (
     <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto p-8 text-center space-y-8 animate-in fade-in zoom-in duration-500">
       <div className="w-24 h-24 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_50px_rgba(124,58,237,0.3)]">
@@ -213,38 +258,26 @@ export default function Chat() {
         {[
           {
             title: isRTL ? "التصميم والإبداع" : "Design & Creativity",
-            desc: isRTL
-              ? "هوية بصرية، صور بالذكاء الاصطناعي، ديكور"
-              : "Visual identity, AI images, decor",
+            desc: isRTL ? "هوية بصرية، صور بالذكاء الاصطناعي، ديكور" : "Visual identity, AI images, decor",
           },
           {
             title: isRTL ? "المحتوى الرقمي" : "Digital Content",
-            desc: isRTL
-              ? "فيديوهات، كتب إلكترونية، عروض تقديمية"
-              : "Videos, eBooks, presentations",
+            desc: isRTL ? "فيديوهات، كتب إلكترونية، عروض تقديمية" : "Videos, eBooks, presentations",
           },
           {
             title: isRTL ? "الخدمات الأكاديمية" : "Academic Services",
-            desc: isRTL
-              ? "مشاريع تخرج، عروض جامعية"
-              : "Graduation projects, university presentations",
+            desc: isRTL ? "مشاريع تخرج، عروض جامعية" : "Graduation projects, university presentations",
           },
           {
             title: isRTL ? "البرمجة والبيانات" : "Programming & Data",
-            desc: isRTL
-              ? "تطبيقات وأنظمة، تحليل بيانات"
-              : "Apps, systems, data analysis",
+            desc: isRTL ? "تطبيقات وأنظمة، تحليل بيانات" : "Apps, systems, data analysis",
           },
         ].map((service, i) => (
           <div
             key={i}
             className="p-4 rounded-xl border border-border bg-card/50 backdrop-blur-sm hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
-              setInput(
-                isRTL
-                  ? `أريد معرفة المزيد عن قسم ${service.title}`
-                  : `Tell me more about ${service.title}`,
-              );
+              setInput(isRTL ? `أريد معرفة المزيد عن قسم ${service.title}` : `Tell me more about ${service.title}`);
               textareaRef.current?.focus();
             }}
           >
@@ -258,6 +291,68 @@ export default function Chat() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-transparent">
+      {/* Usage bar for free plan */}
+      {usageInfo && usageInfo.plan === "free" && usageInfo.limit !== null && !isBlocked && (
+        <div className={cn(
+          "mx-4 mt-3 px-3 py-2 rounded-xl border flex items-center gap-2 text-xs",
+          isLimitReached
+            ? "bg-destructive/10 border-destructive/40 text-destructive"
+            : isFreeNearLimit
+              ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+              : "bg-primary/5 border-primary/20 text-muted-foreground",
+        )}>
+          {isLimitReached ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <Zap className="w-3.5 h-3.5 shrink-0" />}
+          <span className="flex-1">
+            {isLimitReached
+              ? (lang === "ar" ? `استنفدت حصتك اليومية المجانية (${usageInfo.usageToday}/${usageInfo.limit} رسائل)` : `Daily free limit reached (${usageInfo.usageToday}/${usageInfo.limit} messages)`)
+              : (lang === "ar" ? `رسائل مجانية اليوم: ${usageInfo.usageToday} / ${usageInfo.limit}` : `Free messages today: ${usageInfo.usageToday} / ${usageInfo.limit}`)}
+          </span>
+          {isLimitReached && (
+            <Link href="/pricing">
+              <span className="font-bold underline cursor-pointer">{lang === "ar" ? "ترقية الخطة" : "Upgrade"}</span>
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Blocked notice */}
+      {isBlocked && (
+        <div className="mx-4 mt-3 px-4 py-3 rounded-xl border bg-destructive/10 border-destructive/40 flex items-start gap-3 text-sm text-destructive">
+          <Ban className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold mb-0.5">{lang === "ar" ? "تم تعليق حسابك" : "Your account has been suspended"}</p>
+            <p className="text-xs opacity-80">{lang === "ar" ? "للاستفسار تواصل عبر واتساب: +967783701365" : "Contact support: +967783701365"}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Limit exceeded banner */}
+      {isLimitReached && !isBlocked && (
+        <div className="mx-4 mt-2 px-4 py-3 rounded-xl border bg-yellow-500/5 border-yellow-500/30 flex flex-col gap-2 text-sm">
+          <p className="text-yellow-400 font-medium">
+            {lang === "ar" ? "🔒 وصلت إلى الحد اليومي للخطة المجانية" : "🔒 Free plan daily limit reached"}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {lang === "ar"
+              ? "اشترك في أي خطة مدفوعة للحصول على رسائل غير محدودة. أسعار تبدأ من $2.99 فقط في الأسبوع."
+              : "Subscribe to any paid plan for unlimited messages. Prices start at just $2.99/week."}
+          </p>
+          <div className="flex gap-2">
+            <Link href="/subscribe?plan=weekly">
+              <Button size="sm" className="text-xs h-7 gap-1">
+                <Zap className="w-3 h-3" />
+                {lang === "ar" ? "اشترك الآن" : "Subscribe Now"}
+              </Button>
+            </Link>
+            <Link href="/pricing">
+              <Button size="sm" variant="outline" className="text-xs h-7">
+                {lang === "ar" ? "عرض الخطط" : "View Plans"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-8 py-6">
         {!conversationId && localMessages.length === 0 ? (
           <WelcomeScreen />
@@ -348,7 +443,12 @@ export default function Chat() {
 
           <form
             onSubmit={handleSubmit}
-            className="relative flex items-end gap-2 bg-card border border-input rounded-3xl p-2 shadow-lg focus-within:ring-1 focus-within:ring-primary/50 focus-within:border-primary transition-all"
+            className={cn(
+              "relative flex items-end gap-2 bg-card border rounded-3xl p-2 shadow-lg transition-all",
+              isLimitReached || isBlocked
+                ? "border-destructive/40 opacity-60 pointer-events-none"
+                : "border-input focus-within:ring-1 focus-within:ring-primary/50 focus-within:border-primary",
+            )}
           >
             <input
               type="file"
@@ -364,7 +464,7 @@ export default function Chat() {
               size="icon"
               className="shrink-0 rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isStreaming}
+              disabled={isStreaming || isLimitReached || isBlocked}
             >
               <ImageIcon className="w-5 h-5" />
             </Button>
@@ -374,17 +474,23 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t("sendMessage")}
+              placeholder={
+                isLimitReached
+                  ? (lang === "ar" ? "الحد اليومي مكتمل — اشترك للاستمرار" : "Daily limit reached — subscribe to continue")
+                  : isBlocked
+                    ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended")
+                    : t("sendMessage")
+              }
               className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base"
               rows={1}
-              disabled={isStreaming}
+              disabled={isStreaming || isLimitReached || isBlocked}
             />
 
             <Button
               type="submit"
               size="icon"
               className="shrink-0 rounded-full h-10 w-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.6)]"
-              disabled={(!input.trim() && !selectedImage) || isStreaming}
+              disabled={(!input.trim() && !selectedImage) || isStreaming || isLimitReached || isBlocked}
             >
               <Send className="w-4 h-4 rtl:-scale-x-100" />
             </Button>

@@ -1,7 +1,14 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
-import { db, conversations as conversationsTable, messages as messagesTable } from "@workspace/db";
+import {
+  db,
+  conversations as conversationsTable,
+  messages as messagesTable,
+  userPlans as userPlansTable,
+  userUsage as userUsageTable,
+  blockedUsers as blockedUsersTable,
+} from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
@@ -29,6 +36,50 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   (req as AuthedRequest).userId = userId;
   next();
+}
+
+const PLAN_LIMITS: Record<string, number> = {
+  free: 5,
+  weekly: Infinity,
+  monthly: Infinity,
+  annual: Infinity,
+  enterprise: Infinity,
+};
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function getUserPlanAndUsage(userId: string): Promise<{ plan: string; usageToday: number; limit: number; isExpired: boolean }> {
+  const today = todayStr();
+  const [planRow] = await db.select().from(userPlansTable).where(eq(userPlansTable.userId, userId));
+  let plan = planRow?.plan ?? "free";
+
+  const isExpired =
+    plan !== "free" &&
+    planRow?.validUntil != null &&
+    new Date(planRow.validUntil) < new Date();
+
+  if (isExpired) plan = "free";
+
+  const [usageRow] = await db.select().from(userUsageTable)
+    .where(and(eq(userUsageTable.userId, userId), eq(userUsageTable.date, today)));
+  const usageToday = usageRow?.messageCount ?? 0;
+  const limit = PLAN_LIMITS[plan] ?? 5;
+  return { plan, usageToday, limit, isExpired };
+}
+
+async function incrementUsage(userId: string): Promise<void> {
+  const today = todayStr();
+  const [existing] = await db.select().from(userUsageTable)
+    .where(and(eq(userUsageTable.userId, userId), eq(userUsageTable.date, today)));
+  if (existing) {
+    await db.update(userUsageTable)
+      .set({ messageCount: sql`${userUsageTable.messageCount} + 1` })
+      .where(and(eq(userUsageTable.userId, userId), eq(userUsageTable.date, today)));
+  } else {
+    await db.insert(userUsageTable).values({ userId, date: today, messageCount: 1 });
+  }
 }
 
 const SYSTEM_PROMPT = `أنت وكيل ذكي يمثل خالد سلمان، مبدع يمني متخصص في الذكاء الاصطناعي والبرمجة والتصميم.
@@ -143,8 +194,35 @@ router.get("/gemini/conversations/:id/messages", requireAuth, async (req: Reques
   res.json(messages);
 });
 
+router.get("/gemini/usage", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { plan, usageToday, limit, isExpired } = await getUserPlanAndUsage(userId);
+  res.json({ plan, usageToday, limit: limit === Infinity ? null : limit, isExpired });
+});
+
 router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+
+  const blocked = await db.select().from(blockedUsersTable).where(eq(blockedUsersTable.userId, userId));
+  if (blocked.length > 0) {
+    res.status(403).json({ error: "blocked", message: "تم حظر حسابك. تواصل مع المدير عبر واتساب: +967783701365" });
+    return;
+  }
+
+  const { plan, usageToday, limit } = await getUserPlanAndUsage(userId);
+  if (limit !== Infinity && usageToday >= limit) {
+    res.status(429).json({
+      error: "limit_exceeded",
+      plan,
+      usageToday,
+      limit,
+      message: plan === "free"
+        ? `لقد استنفدت حصتك اليومية المجانية (${limit} رسائل). اشترك في خطة مدفوعة للاستمرار.`
+        : `لقد وصلت إلى الحد اليومي للرسائل (${limit}).`,
+    });
+    return;
+  }
+
   const params = SendGeminiMessageParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -168,11 +246,7 @@ router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Reque
     return;
   }
 
-  await db.insert(messagesTable).values({
-    conversationId,
-    role: "user",
-    content: userContent,
-  });
+  await db.insert(messagesTable).values({ conversationId, role: "user", content: userContent });
 
   const history = await db
     .select()
@@ -219,11 +293,8 @@ router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Reque
       }
     }
 
-    await db.insert(messagesTable).values({
-      conversationId,
-      role: "assistant",
-      content: fullResponse,
-    });
+    await db.insert(messagesTable).values({ conversationId, role: "assistant", content: fullResponse });
+    await incrementUsage(userId);
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {

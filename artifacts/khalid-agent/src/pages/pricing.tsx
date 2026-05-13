@@ -1,11 +1,10 @@
 import { Link } from "wouter";
-import { Check, ArrowRight, Sparkles, Zap, Crown, Star } from "lucide-react";
+import { Check, ArrowRight, Sparkles, Zap, Crown, Star, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 const WA_NUMBER = "967783701365";
 
 function waLink(plan: string, lang: string) {
@@ -31,16 +30,18 @@ export default function Pricing() {
       priceNote: "",
       desc: t("planFreeDesc"),
       features: [
-        lang === "ar" ? "5 رسائل يومياً" : "5 messages per day",
+        lang === "ar" ? "5 رسائل يومياً فقط" : "5 messages per day",
         lang === "ar" ? "الوصول للخدمات" : "Access to services",
         lang === "ar" ? "تحليل الصور الأساسي" : "Basic image analysis",
         lang === "ar" ? "دعم اللغات المتعددة" : "Multilingual support",
       ],
       cta: t("startFree"),
       href: `${basePath}/sign-up`,
-      isLink: true,
+      isInternal: true,
+      isWA: false,
       color: "border-border",
       iconColor: "text-muted-foreground",
+      btnVariant: "outline" as const,
       popular: false,
     },
     {
@@ -57,11 +58,14 @@ export default function Pricing() {
         lang === "ar" ? "حفظ جميع المحادثات" : "Full conversation history",
         lang === "ar" ? "دعم اللغات المتعددة" : "Multilingual support",
       ],
-      cta: t("contactToSubscribe"),
-      href: waLink(t("weeklyPlan"), lang),
-      isLink: false,
-      color: "border-border",
+      cta: lang === "ar" ? "اشترك الآن" : "Subscribe Now",
+      href: `${basePath}/subscribe?plan=weekly`,
+      waHref: waLink(lang === "ar" ? "الأسبوعي" : "Weekly", lang),
+      isInternal: true,
+      isWA: false,
+      color: "border-blue-500/30",
       iconColor: "text-blue-400",
+      btnVariant: "outline" as const,
       popular: false,
     },
     {
@@ -78,11 +82,14 @@ export default function Pricing() {
         lang === "ar" ? "أولوية الاستجابة" : "Priority response",
         lang === "ar" ? "استشارات مجانية" : "Free consultations",
       ],
-      cta: t("contactToSubscribe"),
-      href: waLink(t("monthlyPlan"), lang),
-      isLink: false,
+      cta: lang === "ar" ? "اشترك الآن" : "Subscribe Now",
+      href: `${basePath}/subscribe?plan=monthly`,
+      waHref: waLink(lang === "ar" ? "الشهري" : "Monthly", lang),
+      isInternal: true,
+      isWA: false,
       color: "border-primary/60",
       iconColor: "text-primary",
+      btnVariant: "default" as const,
       popular: true,
     },
     {
@@ -97,14 +104,40 @@ export default function Pricing() {
         lang === "ar" ? "دعم مباشر من خالد" : "Direct support from Khaled",
         lang === "ar" ? "استشارات مخصصة" : "Custom consultations",
         lang === "ar" ? "مشاريع تخرج وأكاديمية" : "Academic projects",
-        lang === "ar" ? "أولوية قصوى" : "Maximum priority",
-        lang === "ar" ? t("save") : t("save"),
+        lang === "ar" ? "أولوية قصوى + توفير 33%" : "Max priority + 33% savings",
       ],
-      cta: t("contactToSubscribe"),
-      href: waLink(t("annualPlan"), lang),
-      isLink: false,
+      cta: lang === "ar" ? "اشترك الآن" : "Subscribe Now",
+      href: `${basePath}/subscribe?plan=annual`,
+      waHref: waLink(lang === "ar" ? "السنوي" : "Annual", lang),
+      isInternal: true,
+      isWA: false,
       color: "border-yellow-500/40",
       iconColor: "text-yellow-400",
+      btnVariant: "outline" as const,
+      popular: false,
+    },
+    {
+      key: "enterprise",
+      icon: Building2,
+      name: lang === "ar" ? "مؤسسي" : "Enterprise",
+      price: lang === "ar" ? "حسب الطلب" : "Custom",
+      priceNote: "",
+      desc: lang === "ar" ? "للشركات والمؤسسات الكبيرة" : "For large businesses & institutions",
+      features: [
+        lang === "ar" ? "كل مميزات السنوي" : "All annual features",
+        lang === "ar" ? "رسائل غير محدودة تماماً" : "Truly unlimited messages",
+        lang === "ar" ? "تكامل مع أنظمة المؤسسة" : "Enterprise integration",
+        lang === "ar" ? "دعم فني مخصص 24/7" : "Dedicated 24/7 support",
+        lang === "ar" ? "اتفاقية مستوى خدمة (SLA)" : "Service Level Agreement",
+        lang === "ar" ? "تقارير وتحليلات تفصيلية" : "Detailed analytics & reports",
+      ],
+      cta: lang === "ar" ? "تواصل معنا" : "Contact Us",
+      href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lang === "ar" ? "أريد الاشتراك في الخطة المؤسسية" : "I'm interested in the Enterprise plan")}`,
+      isInternal: false,
+      isWA: true,
+      color: "border-emerald-500/40",
+      iconColor: "text-emerald-400",
+      btnVariant: "outline" as const,
       popular: false,
     },
   ];
@@ -118,7 +151,7 @@ export default function Pricing() {
           "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.12) 0%, transparent 60%), hsl(240 10% 4%)",
       }}
     >
-      <div className="max-w-6xl mx-auto px-4 py-16">
+      <div className="max-w-7xl mx-auto px-4 py-16">
         <div className="text-center mb-16 space-y-4">
           <Link href="/">
             <img
@@ -135,7 +168,7 @@ export default function Pricing() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-16">
           {plans.map((plan) => {
             const Icon = plan.icon;
             return (
@@ -144,7 +177,7 @@ export default function Pricing() {
                 className={cn(
                   "relative flex flex-col rounded-2xl border bg-card p-6 transition-all hover:shadow-lg hover:shadow-primary/10",
                   plan.color,
-                  plan.popular && "ring-1 ring-primary/40 shadow-lg shadow-primary/15",
+                  plan.popular && "ring-1 ring-primary/40 shadow-lg shadow-primary/15 scale-[1.02]",
                 )}
               >
                 {plan.popular && (
@@ -190,14 +223,14 @@ export default function Pricing() {
                   ))}
                 </ul>
 
-                {plan.isLink ? (
+                {plan.isInternal ? (
                   <Link href={plan.href}>
                     <Button
                       className={cn(
                         "w-full gap-2",
                         plan.popular && "shadow-lg shadow-primary/30",
                       )}
-                      variant={plan.popular ? "default" : "outline"}
+                      variant={plan.btnVariant}
                     >
                       {plan.cta}
                       <ArrowRight className="w-4 h-4 rtl:-scale-x-100" />
@@ -205,16 +238,21 @@ export default function Pricing() {
                   </Link>
                 ) : (
                   <a href={plan.href} target="_blank" rel="noopener noreferrer">
-                    <Button
-                      className={cn(
-                        "w-full gap-2",
-                        plan.popular && "shadow-lg shadow-primary/30",
-                      )}
-                      variant={plan.popular ? "default" : "outline"}
-                    >
+                    <Button className="w-full gap-2" variant={plan.btnVariant}>
                       {plan.cta}
                       <ArrowRight className="w-4 h-4 rtl:-scale-x-100" />
                     </Button>
+                  </a>
+                )}
+
+                {"waHref" in plan && plan.waHref && (
+                  <a
+                    href={plan.waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-xs text-muted-foreground hover:text-primary transition-colors mt-2"
+                  >
+                    {lang === "ar" ? "أو عبر واتساب" : "or via WhatsApp"}
                   </a>
                 )}
               </div>
