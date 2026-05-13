@@ -5,6 +5,7 @@ import {
   Mail, Sparkles, Star, Zap, Crown, Globe, Brain, CheckCircle2,
   MessageSquare, Rocket, Building2, Shield, MapPin, Phone, Send,
   Users, Award, BookOpen, Volume2, Ghost, ChevronDown, ExternalLink,
+  Activity, Car, UtensilsCrossed, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
@@ -266,6 +267,54 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ─── GOVERNMENT SECTORS ─── */}
+      <section className="relative z-10 py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/30 rounded-full px-4 py-1.5 text-sm text-amber-400 mb-4">
+              <Globe className="w-3.5 h-3.5" />
+              {isRTL ? "رؤية 73 — القطاعات الحكومية" : "Vision 73 — Government Sectors"}
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3"
+              style={{ background: "linear-gradient(90deg, #fff, #a78bfa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              {isRTL ? "منظومة رقمية متكاملة لليمن" : "Integrated Digital Ecosystem for Yemen"}
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              {isRTL ? "6 محاور حكومية كبرى تغطي كل جوانب الحياة في اليمن — كل منظومة تعمل بالذكاء الاصطناعي وتندمج مع الأخرى" : "6 major government axes covering all aspects of life in Yemen — each ecosystem powered by AI and integrated with the others"}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { href: "/health", icon: Activity, num: "67", title: isRTL ? "الصحة الذكية" : "Smart Health", desc: isRTL ? "ملف طبي موحد، حجز مواعيد، وصفات إلكترونية، رصد أوبئة، مستشفيات وصيدليات" : "Unified medical file, appointments, e-prescriptions, epidemic monitoring, hospitals & pharmacies", grad: "from-emerald-500/20 to-emerald-500/5", border: "border-emerald-500/30", ic: "text-emerald-400", bg: "bg-emerald-500/20", ring: "hover:border-emerald-500/60" },
+              { href: "/education", icon: GraduationCap, num: "68", title: isRTL ? "التعليم الإلكتروني" : "E-Education", desc: isRTL ? "سجل أكاديمي، شهادات رقمية، درس بالذكاء الاصطناعي، تصحيح آلي، ربط مع سوق العمل" : "Academic record, digital certificates, AI lessons, auto-grading, job market integration", grad: "from-blue-500/20 to-blue-500/5", border: "border-blue-500/30", ic: "text-blue-400", bg: "bg-blue-500/20", ring: "hover:border-blue-500/60" },
+              { href: "/transport", icon: Car, num: "69", title: isRTL ? "النقل والمواصلات" : "Transport", desc: isRTL ? "تراخيص رقمية، GPS شحن، طلب سيارة، مشاركة الركوب، تتبع مركبات، مخالفات إلكترونية" : "Digital licenses, freight GPS, taxi requests, carpooling, vehicle tracking, e-violations", grad: "from-amber-500/20 to-amber-500/5", border: "border-amber-500/30", ic: "text-amber-400", bg: "bg-amber-500/20", ring: "hover:border-amber-500/60" },
+              { href: "/real-estate", icon: Building2, num: "70", title: isRTL ? "العقارات والتعمير" : "Real Estate", desc: isRTL ? "تراخيص بناء، تقييم ذكي، عقود إلكترونية، سوق عقاري موحد، تصميم معماري بالذكاء الاصطناعي" : "Building permits, AI valuation, e-contracts, unified property market, AI architectural design", grad: "from-purple-500/20 to-purple-500/5", border: "border-purple-500/30", ic: "text-purple-400", bg: "bg-purple-500/20", ring: "hover:border-purple-500/60" },
+              { href: "/restaurants", icon: UtensilsCrossed, num: "71", title: isRTL ? "المطاعم والتوصيل" : "Restaurants", desc: isRTL ? "استقبال طلبات متعدد القنوات، تتبع توصيل، إدارة مخزون، تحليل تفضيلات، برامج ولاء" : "Multi-channel orders, delivery tracking, inventory management, preference analysis, loyalty programs", grad: "from-red-500/20 to-red-500/5", border: "border-red-500/30", ic: "text-red-400", bg: "bg-red-500/20", ring: "hover:border-red-500/60" },
+              { href: "/emergency", icon: AlertTriangle, num: "72", title: isRTL ? "الطوارئ والكوارث" : "Emergency", desc: isRTL ? "إنذارات مبكرة، رصد زلازل وسيول وأعاصير، تنسيق إغاثة، إدارة مخزون طوارئ، حماية البنية التحتية" : "Early warnings, earthquake/flood/hurricane monitoring, relief coordination, emergency stockpile management", grad: "from-orange-500/20 to-orange-500/5", border: "border-orange-500/30", ic: "text-orange-400", bg: "bg-orange-500/20", ring: "hover:border-orange-500/60" },
+            ].map((s, i) => (
+              <Link key={i} href={s.href}>
+                <div className={cn("group p-5 rounded-2xl border bg-gradient-to-b hover:scale-[1.02] transition-all cursor-pointer h-full", s.grad, s.border, s.ring)}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", s.bg)}>
+                      <s.icon className={cn("w-5 h-5", s.ic)} />
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">محور #{s.num}</div>
+                      <h3 className="font-bold text-sm">{s.title}</h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
+                  <div className={cn("mt-3 text-xs font-medium flex items-center gap-1", s.ic)}>
+                    {isRTL ? "استكشف الخدمات" : "Explore Services"}
+                    <ArrowLeft className={cn("w-3 h-3", isRTL ? "" : "rotate-180")} />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── CONTACT ─── */}
       <section className="relative z-10 py-16 px-4">
         <div className="max-w-2xl mx-auto text-center space-y-6">
@@ -294,13 +343,19 @@ export default function Landing() {
             <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center font-black text-white text-xs">KS</div>
             <span>{isRTL ? "خالد سلمان" : "Khaled Salman"}</span>
           </div>
-          <div className="flex gap-4 text-xs">
+          <div className="flex flex-wrap gap-3 text-xs justify-center">
             <Link href="/about"><span className="hover:text-foreground cursor-pointer">{isRTL ? "عن خالد" : "About"}</span></Link>
             <Link href="/services"><span className="hover:text-foreground cursor-pointer">{isRTL ? "الخدمات" : "Services"}</span></Link>
             <Link href="/pricing"><span className="hover:text-foreground cursor-pointer">{isRTL ? "الاشتراكات" : "Pricing"}</span></Link>
             <Link href="/vision"><span className="hover:text-foreground cursor-pointer">{isRTL ? "الرؤية 73" : "Vision 73"}</span></Link>
+            <Link href="/health"><span className="hover:text-emerald-400 cursor-pointer">{isRTL ? "الصحة" : "Health"}</span></Link>
+            <Link href="/education"><span className="hover:text-blue-400 cursor-pointer">{isRTL ? "التعليم" : "Education"}</span></Link>
+            <Link href="/transport"><span className="hover:text-amber-400 cursor-pointer">{isRTL ? "النقل" : "Transport"}</span></Link>
+            <Link href="/real-estate"><span className="hover:text-purple-400 cursor-pointer">{isRTL ? "العقارات" : "Real Estate"}</span></Link>
+            <Link href="/restaurants"><span className="hover:text-red-400 cursor-pointer">{isRTL ? "المطاعم" : "Restaurants"}</span></Link>
+            <Link href="/emergency"><span className="hover:text-orange-400 cursor-pointer">{isRTL ? "الطوارئ" : "Emergency"}</span></Link>
           </div>
-          <span className="text-xs">© 2025 {isRTL ? "خالد سلمان. جميع الحقوق محفوظة." : "Khaled Salman. All rights reserved."}</span>
+          <span className="text-xs">© 2026 {isRTL ? "خالد سلمان. جميع الحقوق محفوظة." : "Khaled Salman. All rights reserved."}</span>
         </div>
       </footer>
     </div>

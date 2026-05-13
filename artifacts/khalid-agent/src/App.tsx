@@ -19,6 +19,12 @@ import CareerMapPage from "@/pages/career-map";
 import GuestChatPage from "@/pages/guest-chat";
 import AboutPage from "@/pages/about";
 import VisionPage from "@/pages/vision";
+import HealthPage from "@/pages/health";
+import EducationPage from "@/pages/education";
+import TransportPage from "@/pages/transport";
+import RealEstatePage from "@/pages/real-estate";
+import RestaurantsPage from "@/pages/restaurants";
+import EmergencyPage from "@/pages/emergency";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
@@ -184,6 +190,12 @@ function AppRouter() {
               <Route path="/guest-chat" component={GuestChatPage} />
               <Route path="/about" component={AboutPage} />
               <Route path="/vision" component={VisionPage} />
+              <Route path="/health" component={HealthPage} />
+              <Route path="/education" component={EducationPage} />
+              <Route path="/transport" component={TransportPage} />
+              <Route path="/real-estate" component={RealEstatePage} />
+              <Route path="/restaurants" component={RestaurantsPage} />
+              <Route path="/emergency" component={EmergencyPage} />
               <Route path="/admin" component={AdminPage} />
               <Route component={NotFound} />
             </Switch>
