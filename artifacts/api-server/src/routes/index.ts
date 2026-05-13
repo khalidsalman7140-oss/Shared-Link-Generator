@@ -4,6 +4,7 @@ import geminiRouter from "./gemini";
 import adminRouter from "./admin";
 import ratingsRouter from "./ratings";
 import paymentsRouter from "./payments";
+import adsRouter from "./ads";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(geminiRouter);
 router.use(adminRouter);
 router.use(ratingsRouter);
 router.use(paymentsRouter);
+router.use(adsRouter);
 
 export default router;

@@ -51,8 +51,35 @@ export const announcements = pgTable("announcements", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const ads = pgTable("ads", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  linkUrl: text("link_url"),
+  sponsor: text("sponsor").notNull().default("مركز الأسطورة"),
+  position: text("position").notNull().default("banner"),
+  isActive: boolean("is_active").notNull().default(true),
+  clickCount: integer("click_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  userEmail: text("user_email"),
+  action: text("action").notNull(),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Rating = typeof ratings.$inferSelect;
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
 export type AppSetting = typeof appSettings.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
+export type Ad = typeof ads.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
