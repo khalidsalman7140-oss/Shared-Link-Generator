@@ -182,8 +182,8 @@ export default function AdminPage() {
     if (isAdmin && !adminUnlocked) {
       sessionStorage.setItem("ks_admin_unlocked", "1");
       setAdminUnlocked(true);
-      // Send security notification to Khaled's phone
       fetch("/api/admin/notify-access", { method: "POST" }).catch(() => {});
+      fetch("/api/admin/ensure-plan", { method: "POST" }).catch(() => {});
     }
   }, [isAdmin, adminUnlocked]);
 

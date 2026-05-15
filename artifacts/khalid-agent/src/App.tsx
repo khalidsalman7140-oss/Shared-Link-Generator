@@ -213,7 +213,12 @@ function AppRouter() {
                 <Route path="/career-map" component={CareerMapPage} />
                 <Route path="/guest-chat" component={GuestChatPage} />
                 <Route path="/about" component={AboutPage} />
-                <Route path="/vision" component={VisionPage} />
+                <Route path="/vision" component={() => (
+                  <>
+                    <Show when="signed-in"><VisionPage /></Show>
+                    <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+                  </>
+                )} />
                 <Route path="/health" component={HealthPage} />
                 <Route path="/education" component={EducationPage} />
                 <Route path="/transport" component={TransportPage} />

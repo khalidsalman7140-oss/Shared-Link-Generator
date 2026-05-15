@@ -45,6 +45,17 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "الفاتح";
 
+router.post("/admin/ensure-plan", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AdminRequest).adminUserId;
+  const existing = await db.select().from(userPlansTable).where(eq(userPlansTable.userId, userId));
+  if (existing.length) {
+    await db.update(userPlansTable).set({ plan: "enterprise", validUntil: null, updatedAt: new Date() }).where(eq(userPlansTable.userId, userId));
+  } else {
+    await db.insert(userPlansTable).values({ userId, plan: "enterprise", validUntil: null });
+  }
+  res.json({ ok: true });
+});
+
 router.post("/admin/verify-key", requireAdmin, (req: Request, res: Response): void => {
   const { key } = req.body as { key?: string };
   if (!key || key.trim() !== ADMIN_KEY) {
