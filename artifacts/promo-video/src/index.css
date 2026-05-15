@@ -1,49 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700;900&display=swap');
 @import "tailwindcss";
 
 :root {
-  --color-primary: #7C3AED;
-  --color-secondary: #4C1D95;
-  --color-accent: #F59E0B;
+  --color-primary: #F97316;
+  --color-primary-light: #FB923C;
+  --color-primary-dark: #EA580C;
+  --color-secondary: #0EA5E9;
+  --color-secondary-light: #38BDF8;
+  --color-accent: #6366F1;
 
-  --color-bg-light: #FFFFFF;
-  --color-bg-dark: #0F0F1A;
-  --color-bg-muted: #1E1E2F;
+  --color-bg: #F8FAFF;
+  --color-bg-dark: #0F172A;
+  --color-bg-card: #FFFFFF;
+  --color-bg-muted: #EFF6FF;
 
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #D1D5DB;
-  --color-text-muted: #9CA3AF;
-  --color-text-inverse: #0F0F1A;
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+  --color-text-light: #94A3B8;
+  --color-text-white: #FFFFFF;
 
   --color-success: #10B981;
   --color-warning: #F59E0B;
-  --color-error: #EF4444;
+  --color-gold: #EAB308;
 
   --font-display: 'Tajawal', sans-serif;
   --font-body: 'Cairo', sans-serif;
-  --font-mono: monospace;
 }
 
 @theme inline {
   --color-primary: var(--color-primary);
   --color-secondary: var(--color-secondary);
   --color-accent: var(--color-accent);
-  --color-bg-light: var(--color-bg-light);
-  --color-bg-dark: var(--color-bg-dark);
-  --color-bg-muted: var(--color-bg-muted);
-  --color-text-primary: var(--color-text-primary);
-  --color-text-secondary: var(--color-text-secondary);
+  --color-bg: var(--color-bg);
+  --color-bg-card: var(--color-bg-card);
+  --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
-  --color-text-inverse: var(--color-text-inverse);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-error: var(--color-error);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
 }
+
+* { box-sizing: border-box; }
 
 body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg);
+  overflow: hidden;
 }
