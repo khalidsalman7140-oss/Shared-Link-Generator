@@ -7,6 +7,7 @@ import paymentsRouter from "./payments";
 import adsRouter from "./ads";
 import userRouter from "./user";
 import bookingsRouter from "./bookings/index.js";
+import sitesRouter from "./sites";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(paymentsRouter);
 router.use(adsRouter);
 router.use(userRouter);
 router.use(bookingsRouter);
+router.use(sitesRouter);
 
 export default router;

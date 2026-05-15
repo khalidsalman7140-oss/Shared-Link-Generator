@@ -292,7 +292,7 @@ export default function Chat() {
         ].map((service, i) => (
           <div
             key={i}
-            className="p-4 rounded-xl border border-border bg-card/50 hover:bg-accent/50 transition-colors cursor-pointer"
+            className="p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
             onClick={() => { setInput(isRTL ? `أريد معرفة المزيد عن قسم ${service.title}` : `Tell me more about ${service.title}`); textareaRef.current?.focus(); }}
           >
             <h3 className="font-semibold text-primary mb-1">{service.title}</h3>
@@ -306,7 +306,21 @@ export default function Chat() {
   const visibleAnnouncements = announcements.filter(a => !dismissedAnnIds.has(a.id));
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-transparent">
+    <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-[#f8f9fa]">
+
+      {/* Services Marquee */}
+      <div className="overflow-hidden border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/8 to-primary/5 py-1.5 select-none shrink-0">
+        <style>{`@keyframes ks-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+        <div style={{ display: "flex", animation: "ks-marquee 38s linear infinite" }} dir="ltr">
+          {[0, 1].map(i => (
+            <div key={i} className="flex items-center gap-6 px-4 whitespace-nowrap" aria-hidden={i === 1}>
+              {["✨ تصميم هوية بصرية", "🌐 بناء مواقع بالـ AI", "🎨 توليد صور احترافية", "📱 تطوير تطبيقات", "🎓 مشاريع تخرج", "💼 استشارات مجانية", "⚡ اشترك من $2.99/أسبوع", "📊 تحليل البيانات"].map((item, j) => (
+                <span key={j} className="text-[11px] text-primary/70 font-medium">{item}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Plan upgrade toast */}
       {planUpgradeToast && (
@@ -325,7 +339,7 @@ export default function Chat() {
           <Bell className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             {ann.title && <p className="font-semibold text-amber-400 text-xs mb-0.5">{ann.title}</p>}
-            <p className="text-foreground/80 text-xs leading-relaxed">{ann.content}</p>
+            <p className="text-gray-700 text-xs leading-relaxed">{ann.content}</p>
           </div>
           <button onClick={() => setDismissedAnnIds(prev => new Set([...prev, ann.id]))}
             className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5 transition-colors">
@@ -364,7 +378,7 @@ export default function Chat() {
         </div>
       )}
 
-      <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-8 py-6">
+      <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-8 py-6 bg-[#f8f9fa]">
         {!conversationId && localMessages.length === 0 ? (
           <WelcomeScreen />
         ) : (
@@ -385,7 +399,7 @@ export default function Chat() {
                 <div className="flex flex-col gap-1 max-w-[85%]">
                   <div className={cn(
                     "px-5 py-4 rounded-2xl whitespace-pre-wrap leading-relaxed",
-                    msg.role === "user" ? "bg-secondary text-secondary-foreground rounded-tr-sm" : "bg-card border border-border rounded-tl-sm text-card-foreground shadow-sm",
+                    msg.role === "user" ? "bg-primary text-white rounded-tr-sm shadow-sm" : "bg-white border border-gray-200 rounded-tl-sm text-gray-800 shadow-sm",
                   )}>
                     {displayContent(msg.content)}
                   </div>
@@ -400,7 +414,7 @@ export default function Chat() {
                 <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]">
                   <Bot className="w-5 h-5" />
                 </div>
-                <div className="px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed bg-card border border-primary/30 rounded-tl-sm text-card-foreground shadow-[0_0_10px_rgba(124,58,237,0.1)]">
+                <div className="px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed bg-white border border-primary/30 rounded-tl-sm text-gray-800 shadow-[0_0_10px_rgba(124,58,237,0.08)]">
                   {streamingContent}
                   <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse align-middle" />
                 </div>
@@ -417,7 +431,7 @@ export default function Chat() {
         )}
       </ScrollArea>
 
-      <div className="p-4 md:p-6 bg-gradient-to-t from-background via-background to-transparent mt-auto relative z-10">
+      <div className="p-4 md:p-6 bg-gradient-to-t from-[#f8f9fa] via-[#f8f9fa]/95 to-transparent mt-auto relative z-10">
         <div className="max-w-4xl mx-auto">
           {selectedImage && (
             <div className="mb-3 relative inline-block">
@@ -464,8 +478,8 @@ export default function Chat() {
           <form
             onSubmit={handleSubmit}
             className={cn(
-              "relative flex items-end gap-2 bg-card border rounded-3xl p-2 shadow-lg transition-all",
-              isBlocked ? "border-destructive/40 opacity-60 pointer-events-none" : "border-input focus-within:ring-1 focus-within:ring-primary/50 focus-within:border-primary",
+              "relative flex items-end gap-2 bg-white border rounded-3xl p-2 shadow-md transition-all",
+              isBlocked ? "border-red-300 opacity-60 pointer-events-none" : "border-gray-200 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/60",
             )}
           >
             <input type="file" accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleImageSelect} />

@@ -93,6 +93,15 @@ export const serviceBookings = pgTable("service_bookings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const publishedSites = pgTable("published_sites", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  userId: text("user_id").notNull(),
+  title: text("title"),
+  htmlContent: text("html_content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Rating = typeof ratings.$inferSelect;
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
@@ -101,3 +110,4 @@ export type Announcement = typeof announcements.$inferSelect;
 export type Ad = typeof ads.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type ServiceBooking = typeof serviceBookings.$inferSelect;
+export type PublishedSite = typeof publishedSites.$inferSelect;

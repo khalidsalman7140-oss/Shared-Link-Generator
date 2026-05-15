@@ -21,14 +21,14 @@ export function InstallPWA() {
     setIsIOS(ios);
 
     if (ios && !standalone && !localStorage.getItem("pwa-ios-dismissed")) {
-      setTimeout(() => setShowBanner(true), 4000);
+      setTimeout(() => setShowBanner(true), 800);
     }
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       if (!localStorage.getItem("pwa-dismissed")) {
-        setTimeout(() => setShowBanner(true), 4000);
+        setTimeout(() => setShowBanner(true), 800);
       }
     };
     window.addEventListener("beforeinstallprompt", handler);

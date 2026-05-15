@@ -41,6 +41,8 @@ export default function ToolsPage() {
   const [webCode, setWebCode] = useState("");
   const [webChars, setWebChars] = useState(0);
   const [webView, setWebView] = useState<"code" | "preview">("code");
+  const [publishing, setPublishing] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const fetchUsage = useCallback(async () => {
@@ -158,6 +160,31 @@ export default function ToolsPage() {
     link.download = `website-${Date.now()}.html`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const publishSite = async () => {
+    if (!webCode || publishing) return;
+    setPublishing(true);
+    try {
+      const r = await fetch(`${basePath}/api/sites/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: webCode, title: webDesc.slice(0, 80) }),
+      });
+      if (r.ok) {
+        const data = await r.json() as { slug: string; url: string };
+        const fullUrl = `${window.location.origin}/api/s/${data.slug}`;
+        setPublishedUrl(fullUrl);
+        toast({ title: lang === "ar" ? "✅ تم نشر موقعك!" : "✅ Site published!", description: fullUrl });
+      } else {
+        const err = await r.json() as { message?: string };
+        toast({ title: lang === "ar" ? "فشل النشر" : "Publish failed", description: err.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: lang === "ar" ? "خطأ في الاتصال" : "Connection error", variant: "destructive" });
+    } finally {
+      setPublishing(false);
+    }
   };
 
   if (!isLoaded || loadingPlan) {
@@ -417,8 +444,31 @@ export default function ToolsPage() {
                       <Download className="w-3.5 h-3.5" />
                       {lang === "ar" ? "تحميل HTML" : "Download HTML"}
                     </Button>
+                    <Button
+                      size="sm"
+                      onClick={publishSite}
+                      disabled={webLoading || publishing}
+                      className="gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/30"
+                    >
+                      {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>🚀</span>}
+                      {lang === "ar" ? "نشر مباشر" : "Publish Live"}
+                    </Button>
                   </div>
                 </div>
+
+                {publishedUrl && (
+                  <div className="mx-4 my-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-2.5">
+                    <span className="text-emerald-400 text-sm font-semibold shrink-0">🔗 {lang === "ar" ? "رابط موقعك:" : "Your site:"}</span>
+                    <a href={publishedUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-300 text-xs underline underline-offset-2 truncate hover:text-emerald-200 transition-colors">{publishedUrl}</a>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(publishedUrl); toast({ title: lang === "ar" ? "تم نسخ الرابط ✓" : "Link copied ✓" }); }}
+                      className="shrink-0 text-emerald-400 hover:text-emerald-200 transition-colors"
+                      title="Copy link"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 {webView === "preview" && !webLoading ? (
                   <iframe
