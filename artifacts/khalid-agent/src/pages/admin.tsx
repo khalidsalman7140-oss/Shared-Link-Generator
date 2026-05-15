@@ -141,7 +141,7 @@ interface AuditLog {
   createdAt: string;
 }
 
-type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings" | "logs";
+type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings" | "logs" | "media";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -497,6 +497,7 @@ export default function AdminPage() {
     { id: "announcements", label: "الإشعارات", icon: Megaphone },
     { id: "logs", label: "السجلات", icon: Activity, badge: auditLogs.length || undefined },
     { id: "security", label: "الأمان", icon: Shield, badge: suspiciousFraud.length || undefined },
+  { id: "media", label: "الوسائط", icon: Image },
   ];
 
   return (
@@ -1253,6 +1254,86 @@ export default function AdminPage() {
         )}
 
         {/* SECURITY */}
+        {tab === "media" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <Image className="w-5 h-5 text-primary" />
+                مكتبة الوسائط
+              </h2>
+              <span className="text-xs text-muted-foreground bg-primary/10 text-primary px-2 py-1 rounded-full">خاص بالمدير</span>
+            </div>
+
+            {/* Promo Video Section */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  الفيديو الترويجي — يمن شات (30 ثانية)
+                </h3>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/promo-video/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs bg-primary/20 text-primary px-3 py-1.5 rounded-full hover:bg-primary/30 transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    فتح في تبويب جديد
+                  </a>
+                </div>
+              </div>
+              {/* Embedded video preview */}
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src="/promo-video/"
+                  className="absolute inset-0 w-full h-full border-0"
+                  title="الفيديو الترويجي ليمن شات"
+                  allow="autoplay"
+                />
+              </div>
+              <div className="p-4 border-t border-border bg-muted/10">
+                <p className="text-xs text-muted-foreground mb-3">
+                  لتنزيل الفيديو: افتح في تبويب جديد → اضغط زر التصدير في أسفل الشاشة (يتم تسجيل الفيديو تلقائياً وتحميله)
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <a
+                    href="/promo-video/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors font-medium"
+                  >
+                    <MousePointerClick className="w-3.5 h-3.5" />
+                    فتح لتنزيل الفيديو
+                  </a>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/30 px-3 py-2 rounded-xl">
+                    <Globe className="w-3 h-3" />
+                    الفيديو مُنتج بالكامل بكود React بدون استهلاك رصيد AI
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload space for more media */}
+            <div className="bg-card border border-dashed border-border/60 rounded-2xl p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <ImagePlus className="w-7 h-7 text-primary/60" />
+              </div>
+              <h3 className="font-semibold text-sm mb-1">مساحة الوسائط</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                يمكنك إضافة صور، شعارات، أو تصاميم إضافية هنا مستقبلاً
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                {["الفيديو الترويجي ✓", "شعار يمن شات ✓", "صورة خالد ✓", "تصاميم قادمة..."].map((item, i) => (
+                  <div key={i} className={`rounded-xl p-3 text-xs text-center border ${i < 3 ? "border-primary/30 bg-primary/5 text-primary" : "border-border bg-muted/20 text-muted-foreground"}`}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab === "security" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
