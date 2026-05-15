@@ -45,6 +45,21 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "الفاتح";
 
+// ── مسار عام للإعلانات النشطة (بدون تسجيل دخول) ────────────────
+router.get("/announcements", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const list = await db
+      .select()
+      .from(announcementsTable)
+      .where(eq(announcementsTable.isActive, true))
+      .orderBy(desc(announcementsTable.createdAt))
+      .limit(5);
+    res.json(list);
+  } catch {
+    res.json([]);
+  }
+});
+
 router.post("/admin/ensure-plan", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AdminRequest).adminUserId;
   const existing = await db.select().from(userPlansTable).where(eq(userPlansTable.userId, userId));
