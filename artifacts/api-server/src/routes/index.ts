@@ -8,6 +8,8 @@ import adsRouter from "./ads";
 import userRouter from "./user";
 import bookingsRouter from "./bookings/index.js";
 import sitesRouter from "./sites";
+import convertRouter from "./convert.js";
+import servicesRouter from "./services/index.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(adsRouter);
 router.use(userRouter);
 router.use(bookingsRouter);
 router.use(sitesRouter);
+router.use(convertRouter);
+router.use(servicesRouter);
 
 export default router;
