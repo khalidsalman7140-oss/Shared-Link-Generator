@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import { useLocation, useSearch, Link } from "wouter";
 import { useUser } from "@clerk/react";
 import {
@@ -239,6 +239,12 @@ export default function Chat() {
       messageContent += `\n[IMAGE:${selectedImage.mimeType}:${selectedImage.base64}]`;
     }
 
+    // توليد صورة مباشرة إذا كان الطلب لصورة
+    if (!selectedImage && isImageRequest(messageContent)) {
+      handleImageGeneration(messageContent);
+      return;
+    }
+
     if (!conversationId) {
       createMutation.mutate(
         { data: { title: messageContent.slice(0, 60) || t("newChat") } },
@@ -253,8 +259,44 @@ export default function Chat() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
-  const displayContent = (content: string) =>
-    content.replace(/\[IMAGE:[^\]]+\]/g, isRTL ? "[📷 صورة مرفقة]" : "[📷 Image attached]").trim();
+  // كلمات كشف طلبات توليد الصور
+  const IMAGE_KEYWORDS = ["صمم صورة","صمم لي صورة","ارسم","أنشئ صورة","اعمل صورة","اصنع صورة","رسم لي","صمم لي","ارسم لي","انشئ صورة","اصنع لي صورة","generate image","create image","draw me","design image","make image"];
+  const isImageRequest = (text: string) => IMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  const handleImageGeneration = (prompt: string) => {
+    const userMsgId = Date.now();
+    setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
+    setInput("");
+    setIsStreaming(true);
+    const cleanPrompt = prompt.replace(/^(صمم لي صورة|صمم صورة|ارسم لي|ارسم|أنشئ صورة|اعمل صورة|اصنع صورة|صمم لي|generate image|draw me|create image|design image)\s*/i, "").trim() || prompt;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random()*99999)}`;
+    setTimeout(() => {
+      setLocalMessages(prev => [...prev, { id: Date.now(), role: "assistant", content: `[GEN_IMAGE:${imageUrl}]` }]);
+      setIsStreaming(false);
+    }, 300);
+  };
+
+  const displayContent = (content: string): ReactNode => {
+    const genMatch = content.match(/^\[GEN_IMAGE:(https?:\/\/[^\]]+)\]$/);
+    if (genMatch) {
+      return (
+        <div className="space-y-2">
+          <img
+            src={genMatch[1]}
+            alt="صورة مُولَّدة بالذكاء الاصطناعي"
+            className="max-w-full rounded-xl border border-border shadow-md"
+            style={{ maxHeight: 400 }}
+            onError={(e) => { (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23f3f4f6' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'%3Eجارٍ التحميل...%3C/text%3E%3C/svg%3E"; }}
+          />
+          <a href={genMatch[1]} download target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+            ⬇ تحميل الصورة
+          </a>
+        </div>
+      );
+    }
+    return content.replace(/\[IMAGE:[^\]]+\]/g, isRTL ? "[📷 صورة مرفقة]" : "[📷 Image attached]").trim();
+  };
 
   const isBlocked = limitError?.type === "blocked";
   const isPremiumNeeded = limitError?.type === "premium_required";
@@ -309,7 +351,14 @@ export default function Chat() {
   const visibleAnnouncements = announcements.filter(a => !dismissedAnnIds.has(a.id));
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-full bg-[#f8f9fa]">
+    <div dir={isRTL ? "rtl" : "ltr"} className="relative flex flex-col h-full">
+      {/* خلفية من صورة المستخدم */}
+      {user?.imageUrl && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
+          <img src={user.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.08] blur-2xl scale-110" />
+        </div>
+      )}
+      <div className="relative z-10 flex flex-col h-full bg-[#f8f9fa]/90">
 
       {/* Services Marquee */}
       <div className="overflow-hidden border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/8 to-primary/5 py-1.5 select-none shrink-0">
@@ -552,6 +601,7 @@ export default function Chat() {
           </form>
           <div className="text-center mt-2 text-xs text-muted-foreground">{t("aiDisclaimer")}</div>
         </div>
+      </div>
       </div>
     </div>
   );

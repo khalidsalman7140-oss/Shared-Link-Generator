@@ -131,10 +131,11 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) {
-    setLocation("/sign-in");
-    return null;
-  }
+  useEffect(() => {
+    if (isLoaded && !loading && !user) setLocation("/sign-in");
+  }, [isLoaded, loading, user, setLocation]);
+
+  if (!user) return null;
 
   const displayName = user.firstName
     ? `${user.firstName} ${user.lastName ?? ""}`.trim()

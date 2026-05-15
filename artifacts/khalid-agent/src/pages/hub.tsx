@@ -740,10 +740,38 @@ export default function HubPage() {
         {activeTab === "knowledge" && <KnowledgeHub authToken={authToken} />}
         {activeTab === "audio" && <AudioHub keys={keys} authToken={authToken} />}
 
+        {/* أدوات AI مجانية خارجية */}
+        <div className="mt-8 border border-white/10 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 bg-slate-800/60">
+            <h3 className="font-semibold text-sm text-orange-400">🌐 أدوات AI مجانية — فتح مباشر</h3>
+            <p className="text-xs text-slate-400 mt-1">اضغط على أي أداة لفتحها مباشرة في تبويب جديد</p>
+          </div>
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-900/40">
+            {[
+              { name: "Kimi AI", desc: "ذكاء اصطناعي مجاني سياق ضخم", url: "https://kimi.moonshot.cn", emoji: "🌙", color: "from-blue-600/20 to-cyan-600/20 border-blue-500/30" },
+              { name: "Qwen (قوين)", desc: "AI مجاني من علي بابا", url: "https://chat.qwenlm.ai", emoji: "🔮", color: "from-purple-600/20 to-pink-600/20 border-purple-500/30" },
+              { name: "Gamma مواقع", desc: "إنشاء مواقع وعروض بالذكاء", url: "https://gamma.app", emoji: "⚡", color: "from-emerald-600/20 to-teal-600/20 border-emerald-500/30" },
+              { name: "Pollinations", desc: "توليد صور مجانياً بدون قيود", url: "https://pollinations.ai", emoji: "🎨", color: "from-rose-600/20 to-orange-600/20 border-rose-500/30" },
+              { name: "Claude AI", desc: "ذكاء اصطناعي من Anthropic مجاني", url: "https://claude.ai", emoji: "🧠", color: "from-amber-600/20 to-yellow-600/20 border-amber-500/30" },
+              { name: "Pika مجاني", desc: "توليد فيديو بالذكاء الاصطناعي", url: "https://pika.art", emoji: "🎬", color: "from-violet-600/20 to-indigo-600/20 border-violet-500/30" },
+            ].map(tool => (
+              <a key={tool.name} href={tool.url} target="_blank" rel="noopener noreferrer"
+                className={`flex flex-col gap-1.5 p-3.5 rounded-xl bg-gradient-to-br border cursor-pointer hover:opacity-90 transition-opacity ${tool.color}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{tool.emoji}</span>
+                  <span className="font-semibold text-sm text-white">{tool.name}</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-tight">{tool.desc}</p>
+                <span className="text-[10px] text-orange-400 mt-1">فتح ←</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
         {/* Bottom note */}
-        <div className="mt-8 p-4 bg-slate-800/30 border border-white/5 rounded-xl text-center">
+        <div className="mt-4 p-4 bg-slate-800/30 border border-white/5 rounded-xl text-center">
           <p className="text-xs text-slate-500">
-            💡 Midjourney وTopaz Video AI لا يوجد لهما API رسمي — لذلك لا يمكن ربطهما برمجياً. نستخدم بدلاً عنهما Stable Diffusion وFFmpeg (مجاني وعلى الخادم مباشرة).
+            💡 كل الأدوات المذكورة أعلاه مجانية 100% — لا تحتاج بطاقة ائتمان.
           </p>
         </div>
       </div>
