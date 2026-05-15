@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useSearch, Link } from "wouter";
+import { useUser } from "@clerk/react";
 import {
   useGetGeminiConversation,
   getGetGeminiConversationQueryKey,
@@ -38,6 +39,7 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { t, isRTL, lang } = useI18n();
+  const { user } = useUser();
 
   const { data: conversation, isLoading: isConvLoading } = useGetGeminiConversation(
     conversationId || 0,
@@ -390,17 +392,21 @@ export default function Chat() {
               </div>
             )}
             {localMessages.map((msg) => (
-              <div key={msg.id} className={cn("flex gap-4", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
-                <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border",
-                  msg.role === "user" ? "bg-secondary border-secondary-border" : "bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]",
-                )}>
-                  {msg.role === "user" ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+              <div key={msg.id} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
+                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 shadow-sm"
+                  style={{ borderColor: msg.role === "user" ? "rgba(124,58,237,0.3)" : "rgba(124,58,237,0.2)" }}>
+                  {msg.role === "user" ? (
+                    user?.imageUrl
+                      ? <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-primary flex items-center justify-center"><User className="w-5 h-5 text-white" /></div>
+                  ) : (
+                    <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5" />
+                  )}
                 </div>
-                <div className="flex flex-col gap-1 max-w-[85%]">
+                <div className="flex flex-col gap-1 max-w-[82%]">
                   <div className={cn(
-                    "px-5 py-4 rounded-2xl whitespace-pre-wrap leading-relaxed",
-                    msg.role === "user" ? "bg-primary text-white rounded-tr-sm shadow-sm" : "bg-white border border-gray-200 rounded-tl-sm text-gray-800 shadow-sm",
+                    "px-5 py-4 rounded-2xl whitespace-pre-wrap leading-relaxed text-[15px]",
+                    msg.role === "user" ? "bg-primary text-white rounded-tr-sm shadow-sm font-medium" : "bg-white border border-gray-200 rounded-tl-sm text-gray-900 shadow-sm",
                   )}>
                     {displayContent(msg.content)}
                   </div>
@@ -411,20 +417,20 @@ export default function Chat() {
               </div>
             ))}
             {isStreaming && streamingContent && (
-              <div className="flex gap-4 flex-row">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border bg-primary/20 border-primary/40 text-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]">
-                  <Bot className="w-5 h-5" />
+              <div className="flex gap-3 flex-row">
+                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 border-primary/20 shadow-sm">
+                  <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5" />
                 </div>
-                <div className="px-5 py-4 rounded-2xl max-w-[85%] whitespace-pre-wrap leading-relaxed bg-white border border-primary/30 rounded-tl-sm text-gray-800 shadow-[0_0_10px_rgba(124,58,237,0.08)]">
+                <div className="px-5 py-4 rounded-2xl max-w-[82%] whitespace-pre-wrap leading-relaxed text-[15px] bg-white border border-primary/30 rounded-tl-sm text-gray-900 shadow-[0_0_10px_rgba(124,58,237,0.08)]">
                   {streamingContent}
                   <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse align-middle" />
                 </div>
               </div>
             )}
             {isStreaming && !streamingContent && (
-              <div className="flex gap-4 flex-row">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border bg-primary/20 border-primary/40 text-primary">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+              <div className="flex gap-3 flex-row">
+                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 border-primary/20 shadow-sm">
+                  <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5 animate-pulse" />
                 </div>
               </div>
             )}
@@ -534,7 +540,7 @@ export default function Chat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isBlocked ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended") : isListening ? (lang === "ar" ? "🎤 يستمع..." : "🎤 Listening...") : t("sendMessage")}
-              className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base flex-1"
+              className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-[15px] text-gray-900 placeholder:text-gray-400 flex-1"
               rows={1}
               disabled={isStreaming || isBlocked}
             />
