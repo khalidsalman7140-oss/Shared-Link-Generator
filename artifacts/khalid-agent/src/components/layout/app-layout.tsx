@@ -2,6 +2,30 @@ import { useState, useEffect } from "react";
 import { AppSidebar } from "./sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { useUser } from "@clerk/react";
+
+function TopBar() {
+  const { user, isSignedIn } = useUser();
+  const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+  const initials = (user?.firstName?.[0] ?? email?.[0] ?? "U").toUpperCase();
+
+  if (!isSignedIn) return null;
+
+  return (
+    <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-end px-4 py-2 pointer-events-none">
+      <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full px-3 py-1.5 shadow-sm pointer-events-auto" dir="ltr">
+        <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center overflow-hidden shrink-0">
+          {user?.imageUrl ? (
+            <img src={user.imageUrl} alt="avatar" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-primary font-bold text-[10px]">{initials}</span>
+          )}
+        </div>
+        <span className="text-xs text-gray-600 font-medium max-w-[160px] truncate">{email}</span>
+      </div>
+    </div>
+  );
+}
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -9,14 +33,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
-        setIsSidebarOpen(true);
-      } else {
-        setIsSidebarOpen(false);
-      }
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setIsSidebarOpen(!mobile);
     };
-    
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -25,24 +45,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <AppSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isMobile={isMobile} />
-      
+
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
+        <TopBar />
         {isMobile && (
-          <div className="absolute top-4 right-4 z-30">
-            <Button 
-              variant="outline" 
-              size="icon" 
+          <div className="absolute top-3 right-3 z-30">
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setIsSidebarOpen(true)}
-              className="bg-background/50 backdrop-blur-sm border-primary/20 text-primary"
+              className="h-9 w-9 bg-white/80 backdrop-blur-sm border-gray-200 text-gray-600 shadow-sm"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </Button>
           </div>
         )}
         <div className="flex-1 overflow-hidden relative">
-          {/* Subtle background glow effect */}
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
           {children}
         </div>
       </main>

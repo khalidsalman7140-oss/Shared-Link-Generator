@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Send, Image as ImageIcon, Bot, User, Sparkles, X, Loader2,
-  Zap, Ban, Crown, Brain, Mic, MicOff, Bell, Trophy,
+  Send, Camera, Bot, User, Sparkles, X, Loader2,
+  Zap, Ban, Crown, Brain, Mic, MicOff, Bell, Trophy, Plus,
 } from "lucide-react";
 import { VoiceButton } from "@/components/VoiceButton";
 import { useI18n } from "@/lib/i18n";
@@ -62,6 +62,7 @@ export default function Chat() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchUsage = useCallback(async (prevPlan?: string) => {
@@ -477,39 +478,66 @@ export default function Chat() {
 
           <form
             onSubmit={handleSubmit}
+            dir="ltr"
             className={cn(
-              "relative flex items-end gap-2 bg-white border rounded-3xl p-2 shadow-md transition-all",
+              "relative flex items-end gap-1.5 bg-white border rounded-3xl px-2 py-2 shadow-md transition-all",
               isBlocked ? "border-red-300 opacity-60 pointer-events-none" : "border-gray-200 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/60",
             )}
           >
+            {/* Hidden file inputs */}
             <input type="file" accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleImageSelect} />
-            <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/10"
-              onClick={() => fileInputRef.current?.click()} disabled={isStreaming || isBlocked}>
-              <ImageIcon className="w-5 h-5" />
-            </Button>
+            <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleImageSelect} />
+
+            {/* LEFT icons: mic (blue), camera (green), + add (purple) */}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* + add (purple) */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || isBlocked}
+                title={lang === "ar" ? "إضافة ملف" : "Add file"}
+                className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center transition-all shadow-sm hover:shadow-md disabled:opacity-40"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              {/* camera (green) */}
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={isStreaming || isBlocked}
+                title={lang === "ar" ? "إرفاق صورة" : "Attach image"}
+                className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-all shadow-sm hover:shadow-md disabled:opacity-40"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+              {/* mic (blue) */}
+              <button
+                type="button"
+                onClick={toggleMic}
+                disabled={isStreaming || isBlocked}
+                title={lang === "ar" ? "تحدث بصوتك" : "Voice input"}
+                className={cn(
+                  "w-9 h-9 rounded-full text-white flex items-center justify-center transition-all shadow-sm hover:shadow-md disabled:opacity-40",
+                  isListening
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse ring-2 ring-red-400/40"
+                    : "bg-blue-500 hover:bg-blue-600",
+                )}
+              >
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+            </div>
+
             <Textarea
               ref={textareaRef}
+              dir={isRTL ? "rtl" : "ltr"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isBlocked ? (lang === "ar" ? "تم تعليق حسابك" : "Account suspended") : isListening ? (lang === "ar" ? "🎤 يستمع..." : "🎤 Listening...") : t("sendMessage")}
-              className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base"
+              className="min-h-[44px] max-h-48 resize-none border-0 focus-visible:ring-0 shadow-none bg-transparent p-3 text-base flex-1"
               rows={1}
               disabled={isStreaming || isBlocked}
             />
-            {/* Mic button */}
-            <Button type="button" variant="ghost" size="icon"
-              className={cn(
-                "shrink-0 rounded-full h-10 w-10 transition-all",
-                isListening
-                  ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 animate-pulse ring-2 ring-red-500/30"
-                  : "text-muted-foreground hover:text-primary hover:bg-primary/10",
-              )}
-              onClick={toggleMic}
-              disabled={isStreaming || isBlocked}
-              title={lang === "ar" ? "تحدث بصوتك" : "Speak"}>
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </Button>
             <Button type="submit" size="icon"
               className="shrink-0 rounded-full h-10 w-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.6)]"
               disabled={(!input.trim() && !selectedImage) || isStreaming || isBlocked}>

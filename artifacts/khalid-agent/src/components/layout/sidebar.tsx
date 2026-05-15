@@ -5,17 +5,17 @@ import {
   MessageSquare,
   Trash2,
   X,
-  Mail,
-  Globe,
-  Phone,
-  ExternalLink,
   LogOut,
-  Crown,
+  Globe,
   ChevronDown,
+  ChevronRight,
   Zap,
-  CalendarCheck,
   LayoutDashboard,
   Wand2,
+  CalendarCheck,
+  User,
+  Info,
+  Wrench,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -27,7 +27,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useI18n, LANGUAGES, type Lang } from "@/lib/i18n";
 import { GlobalVoiceToggle } from "@/components/VoiceButton";
 import { cn } from "@/lib/utils";
@@ -39,7 +38,7 @@ interface AppSidebarProps {
 }
 
 function LanguageSelector() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, setLang } = useI18n();
   const [open, setOpen] = useState(false);
   const current = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
 
@@ -47,14 +46,15 @@ function LanguageSelector() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground transition-colors"
+        className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
       >
-        <Globe className="w-4 h-4 shrink-0" />
-        <span className="flex-1 text-start">{current.flag} {current.label}</span>
-        <ChevronDown className={cn("w-4 h-4 transition-transform", open && "rotate-180")} />
+        <Globe className="w-4 h-4 shrink-0 text-blue-400" />
+        <span className="flex-1 text-start font-medium">اللغات</span>
+        <span className="text-xs opacity-60">{current.flag} {current.label}</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform opacity-50", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute bottom-full mb-1 left-0 right-0 bg-popover border border-popover-border rounded-xl shadow-xl overflow-hidden z-50">
+        <div className="absolute top-full mt-1 left-0 right-0 bg-popover border border-sidebar-border rounded-xl shadow-2xl overflow-hidden z-50">
           {LANGUAGES.map((l) => (
             <button
               key={l.code}
@@ -74,60 +74,13 @@ function LanguageSelector() {
   );
 }
 
-function UserSection() {
-  const { user } = useUser();
-  const { signOut } = useClerk();
-  const { t } = useI18n();
-  const [, setLocation] = useLocation();
-
-  if (!user) return null;
-
-  const initials = (user.firstName?.[0] ?? user.emailAddresses?.[0]?.emailAddress?.[0] ?? "U").toUpperCase();
-  const displayName = user.firstName
-    ? `${user.firstName} ${user.lastName ?? ""}`.trim()
-    : user.emailAddresses?.[0]?.emailAddress ?? "User";
-
-  return (
-    <div className="p-3 space-y-2">
-      <div className="flex items-center gap-3 px-2">
-        <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-          {user.imageUrl ? (
-            <img src={user.imageUrl} alt={displayName} className="w-full h-full rounded-full object-cover" />
-          ) : (
-            initials
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-          <div className="flex items-center gap-1">
-            <Zap className="w-3 h-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{t("freePlan")}</span>
-          </div>
-        </div>
-      </div>
-
-      <Link href="/pricing">
-        <Button size="sm" variant="outline" className="w-full gap-2 border-primary/30 hover:border-primary/60 hover:bg-primary/10 text-xs">
-          <Crown className="w-3.5 h-3.5 text-primary" />
-          {t("upgradeNow")}
-        </Button>
-      </Link>
-
-      <button
-        onClick={() => signOut(() => setLocation("/"))}
-        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-      >
-        <LogOut className="w-4 h-4 shrink-0" />
-        <span>{t("signOut")}</span>
-      </button>
-    </div>
-  );
-}
-
 export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
   const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const { t } = useI18n();
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   const { data: conversations, isLoading } = useListGeminiConversations();
   const createMutation = useCreateGeminiConversation();
@@ -154,234 +107,204 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListGeminiConversationsQueryKey() });
-          if (location.includes(`id=${id}`)) {
-            setLocation("/chat");
-          }
+          if (location.includes(`id=${id}`)) setLocation("/chat");
         },
       },
     );
   };
 
+  const navItem = (
+    href: string,
+    icon: React.ReactNode,
+    label: string,
+    badge?: React.ReactNode,
+    highlight?: boolean,
+  ) => {
+    const active = location === href || (href !== "/" && location.startsWith(href));
+    return (
+      <Link
+        href={href}
+        onClick={() => isMobile && setIsOpen(false)}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group",
+          active
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm"
+            : highlight
+            ? "text-primary/80 hover:bg-primary/10 hover:text-primary"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+        )}
+      >
+        <span className={cn("shrink-0", active ? "opacity-100" : "opacity-70 group-hover:opacity-100")}>
+          {icon}
+        </span>
+        <span className="flex-1 truncate">{label}</span>
+        {badge}
+      </Link>
+    );
+  };
+
+  const displayEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
+  const initials = (user?.firstName?.[0] ?? displayEmail?.[0] ?? "U").toUpperCase();
+
   const SidebarContent = (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-l border-sidebar-border w-72 max-w-[80vw]">
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-l border-sidebar-border w-68 max-w-[80vw]" style={{ width: "272px" }}>
+
       {/* Header */}
-      <div className="p-4 flex items-center justify-between shrink-0">
-        <Link href="/">
-          <div className="flex items-center gap-2 cursor-pointer group">
+      <div className="px-4 py-4 flex items-center justify-between shrink-0 border-b border-sidebar-border/50">
+        <Link href="/" onClick={() => isMobile && setIsOpen(false)}>
+          <div className="flex items-center gap-2.5 cursor-pointer group">
             <img src="/logo.svg" alt="KS" className="w-8 h-8 group-hover:opacity-80 transition-opacity" />
-            <h2 className="text-lg font-bold text-primary text-glow">خالد سلمان</h2>
+            <div>
+              <h2 className="text-base font-bold text-primary leading-tight">يمن شات</h2>
+              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Yemen Chat</p>
+            </div>
           </div>
         </Link>
-        {isMobile && (
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-            <X className="h-5 w-5" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          <GlobalVoiceToggle />
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="px-4 pb-3 space-y-2 shrink-0">
-        <Show when="signed-in">
-          <Button
-            onClick={handleNewChat}
-            className="w-full justify-start gap-2 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40"
-            disabled={createMutation.isPending}
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-            {t("newChat")}
-          </Button>
-        </Show>
+      {/* Navigation */}
+      <ScrollArea className="flex-1 py-2">
+        <div className="px-2 space-y-0.5">
 
-        <Link
-          href="/services"
-          className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-            location === "/services"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "hover:bg-sidebar-accent/50 text-muted-foreground",
-          )}
-        >
-          <ExternalLink className="h-4 w-4" />
-          {t("services")}
-        </Link>
+          {/* 1. اللغات */}
+          <LanguageSelector />
 
-        <Link
-          href="/pricing"
-          className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-            location === "/pricing"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "hover:bg-sidebar-accent/50 text-muted-foreground",
-          )}
-        >
-          <Crown className="h-4 w-4" />
-          {t("pricing")}
-        </Link>
+          {/* 2. الخدمات */}
+          {navItem("/services", <Wrench className="w-4 h-4 text-orange-400" />, "الخدمات")}
 
-        <Link
-          href="/booking"
-          className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-            location === "/booking"
-              ? "bg-primary/20 text-primary font-medium"
-              : "hover:bg-primary/10 text-primary/80 hover:text-primary",
-          )}
-        >
-          <CalendarCheck className="h-4 w-4" />
-          احجز خدمة
-        </Link>
+          {/* 3. مشاريعك */}
+          <Show when="signed-in">
+            <div>
+              <button
+                onClick={() => setProjectsOpen(!projectsOpen)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all"
+              >
+                <MessageSquare className="w-4 h-4 text-cyan-400 shrink-0 opacity-80" />
+                <span className="flex-1 text-start">مشاريعك</span>
+                {conversations?.length ? (
+                  <span className="text-[10px] bg-sidebar-accent text-sidebar-foreground/60 rounded-full px-1.5 py-0.5">{conversations.length}</span>
+                ) : null}
+                <ChevronRight className={cn("w-3.5 h-3.5 opacity-40 transition-transform", projectsOpen && "rotate-90")} />
+              </button>
 
-        <Show when="signed-in">
-          <Link
-            href="/dashboard"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-              location === "/dashboard"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                : "hover:bg-sidebar-accent/50 text-muted-foreground",
-            )}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            لوحتي
-          </Link>
-          <Link
-            href="/tools"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-              location === "/tools"
-                ? "bg-primary/20 text-primary font-medium"
-                : "hover:bg-primary/10 text-primary/70 hover:text-primary",
-            )}
-          >
-            <Wand2 className="h-4 w-4" />
-            أدوات الإنتاج
-            <span className="mr-auto text-[9px] bg-primary/20 text-primary border border-primary/30 rounded-full px-1.5 py-0.5">PRO</span>
-          </Link>
-        </Show>
-      </div>
-
-      <Separator className="mx-4 w-auto bg-sidebar-border/50" />
-
-      {/* Conversation History */}
-      <ScrollArea className="flex-1 px-2 py-2">
-        <Show when="signed-in">
-          <div className="space-y-1 p-1">
-            {isLoading ? (
-              <div className="text-center text-sm text-muted-foreground p-4">{t("loading")}</div>
-            ) : !conversations?.length ? (
-              <div className="text-center text-sm text-muted-foreground p-4">{t("noConversations")}</div>
-            ) : (
-              conversations?.map((conv) => {
-                const isActive = location.includes(`id=${conv.id}`);
-                return (
-                  <Link
-                    key={conv.id}
-                    href={`/chat?id=${conv.id}`}
-                    onClick={() => isMobile && setIsOpen(false)}
+              {projectsOpen && (
+                <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border/40 pl-3">
+                  <button
+                    onClick={handleNewChat}
+                    disabled={createMutation.isPending}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs text-primary/80 hover:text-primary hover:bg-primary/10 transition-colors"
                   >
-                    <div
-                      className={cn(
-                        "group flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                          : "hover:bg-sidebar-accent/50 text-muted-foreground",
-                      )}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <MessageSquare className="h-4 w-4 shrink-0" />
-                        <span className="truncate">{conv.title || t("newChat")}</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive shrink-0"
-                        onClick={(e) => handleDelete(conv.id, e)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Link>
-                );
-              })
+                    <MessageSquarePlus className="w-3.5 h-3.5" />
+                    {t("newChat")}
+                  </button>
+                  {isLoading ? (
+                    <p className="text-xs text-muted-foreground px-2 py-2">{t("loading")}</p>
+                  ) : !conversations?.length ? (
+                    <p className="text-xs text-muted-foreground px-2 py-2">{t("noConversations")}</p>
+                  ) : (
+                    conversations.slice(0, 12).map((conv) => {
+                      const isActive = location.includes(`id=${conv.id}`);
+                      return (
+                        <Link
+                          key={conv.id}
+                          href={`/chat?id=${conv.id}`}
+                          onClick={() => isMobile && setIsOpen(false)}
+                        >
+                          <div className={cn(
+                            "group flex items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-colors",
+                            isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-sidebar-accent/50 text-muted-foreground",
+                          )}>
+                            <span className="truncate flex-1">{conv.title || t("newChat")}</span>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 hover:text-destructive shrink-0 ml-1 transition-all"
+                              onClick={(e) => handleDelete(conv.id, e)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </Link>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </Show>
+
+          {/* 4. حسابي */}
+          <Show when="signed-in">
+            {navItem("/dashboard", <LayoutDashboard className="w-4 h-4 text-indigo-400" />, "حسابي")}
+          </Show>
+
+          {/* 5. الدردشة */}
+          {navItem("/chat", <MessageSquare className="w-4 h-4 text-primary" />, "الدردشة")}
+
+          {/* 6. الإنتاج والاستهلاك */}
+          <Show when="signed-in">
+            {navItem(
+              "/tools",
+              <Wand2 className="w-4 h-4 text-yellow-400" />,
+              "الإنتاج والاستهلاك",
+              <span className="text-[9px] bg-yellow-400/15 text-yellow-400 border border-yellow-400/30 rounded-full px-1.5 py-0.5">PRO</span>,
+              true,
             )}
+          </Show>
+
+          {/* 7. تقديم عمل */}
+          {navItem("/booking", <CalendarCheck className="w-4 h-4 text-emerald-400" />, "تقديم عمل")}
+
+          {/* 8. عن خالد */}
+          {navItem("/about", <Info className="w-4 h-4 text-pink-400" />, "عن خالد")}
+        </div>
+      </ScrollArea>
+
+      {/* User Footer */}
+      <div className="shrink-0 border-t border-sidebar-border/50 px-3 py-3">
+        <Show when="signed-in">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5 px-1">
+              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0 overflow-hidden">
+                {user?.imageUrl ? (
+                  <img src={user.imageUrl} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-primary font-bold text-xs">{initials}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-sidebar-foreground truncate">
+                  {user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : displayEmail}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => signOut(() => setLocation("/"))}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span>{t("signOut")}</span>
+            </button>
           </div>
         </Show>
         <Show when="signed-out">
-          <div className="text-center p-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              سجّل دخولك لحفظ محادثاتك
-            </p>
-            <Link href="/sign-in">
-              <Button size="sm" className="w-full">تسجيل الدخول</Button>
+          <div className="space-y-1.5">
+            <Link href="/sign-in" onClick={() => isMobile && setIsOpen(false)}>
+              <Button size="sm" className="w-full text-xs gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                تسجيل الدخول
+              </Button>
             </Link>
+            <p className="text-[10px] text-muted-foreground/60 text-center">تسجيل مجاني — مرة واحدة فقط</p>
           </div>
         </Show>
-      </ScrollArea>
-
-      <Separator className="bg-sidebar-border/50" />
-
-      {/* Language Selector + Voice Toggle */}
-      <div className="px-3 pt-2 flex items-center gap-2">
-        <div className="flex-1"><LanguageSelector /></div>
-        <GlobalVoiceToggle />
-      </div>
-
-      <Separator className="bg-sidebar-border/50 my-2" />
-
-      {/* User Section */}
-      <Show when="signed-in">
-        <UserSection />
-      </Show>
-
-      {/* Contact Info */}
-      <div className="p-4 text-xs space-y-2 bg-sidebar-accent/10 shrink-0">
-        <h3 className="font-semibold text-sidebar-foreground mb-2">{t("contact")}</h3>
-        <div className="space-y-1.5 text-muted-foreground">
-          <a
-            href="https://wa.me/967783701365"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <Phone className="h-3 w-3 shrink-0" />
-            <span dir="ltr">+967 783 701 365</span>
-          </a>
-          <a
-            href="https://wa.me/967779435445"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <Phone className="h-3 w-3 shrink-0" />
-            <span dir="ltr">+967 779 435 445</span>
-          </a>
-          <a
-            href="https://t.me/kshskshg"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <MessageSquare className="h-3 w-3 shrink-0" />
-            <span dir="ltr">@kshskshg</span>
-          </a>
-          <a
-            href="mailto:khalidsalman7140@gmail.com"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <Mail className="h-3 w-3 shrink-0" />
-            <span className="truncate">khalidsalman7140@gmail.com</span>
-          </a>
-          <a
-            href="https://khalid-salman.codewords.run/about"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <Globe className="h-3 w-3 shrink-0" />
-            <span>{t("services")}</span>
-          </a>
-        </div>
-        <p className="text-[10px] text-muted-foreground/60 pt-1">{t("copyright")}</p>
       </div>
     </div>
   );
@@ -389,19 +312,12 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
   return (
     <>
       {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
-          onClick={() => setIsOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
       )}
       <div
         className={cn(
           "fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 ease-in-out",
-          isMobile
-            ? isOpen
-              ? "translate-x-0"
-              : "translate-x-full"
-            : "translate-x-0 static h-screen",
+          isMobile ? (isOpen ? "translate-x-0" : "translate-x-full") : "translate-x-0 static h-screen",
         )}
       >
         {SidebarContent}
