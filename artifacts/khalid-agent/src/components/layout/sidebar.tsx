@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Zap,
   CalendarCheck,
+  LayoutDashboard,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -228,6 +229,21 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
           <CalendarCheck className="h-4 w-4" />
           احجز خدمة
         </Link>
+
+        <Show when="signed-in">
+          <Link
+            href="/dashboard"
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+              location === "/dashboard"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "hover:bg-sidebar-accent/50 text-muted-foreground",
+            )}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            لوحتي
+          </Link>
+        </Show>
       </div>
 
       <Separator className="mx-4 w-auto bg-sidebar-border/50" />

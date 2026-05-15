@@ -28,6 +28,7 @@ const RestaurantsPage = lazy(() => import("@/pages/restaurants"));
 const EmergencyPage = lazy(() => import("@/pages/emergency"));
 const WebsitePage = lazy(() => import("@/pages/website"));
 const BookingPage = lazy(() => import("@/pages/booking"));
+const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const SignInPage = () => (
@@ -154,6 +155,7 @@ function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  const loggedRef = useRef(false);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
@@ -161,6 +163,15 @@ function ClerkQueryClientCacheInvalidator() {
       if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
         qc.clear();
       }
+      if (userId && !loggedRef.current) {
+        loggedRef.current = true;
+        fetch("/api/auth/log-activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "login", details: navigator.userAgent.slice(0, 200) }),
+        }).catch(() => {});
+      }
+      if (!userId) loggedRef.current = false;
       prevUserIdRef.current = userId;
     });
     return unsubscribe;
@@ -211,6 +222,7 @@ function AppRouter() {
                 <Route path="/emergency" component={EmergencyPage} />
                 <Route path="/website" component={WebsitePage} />
                 <Route path="/booking" component={BookingPage} />
+                <Route path="/dashboard" component={DashboardPage} />
                 <Route path="/admin" component={AdminPage} />
                 <Route component={NotFound} />
               </Switch>

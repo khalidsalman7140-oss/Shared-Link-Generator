@@ -14,6 +14,7 @@ import {
   emailFingerprints as emailFingerprintsTable,
   ads as adsTable,
   serviceBookings as bookingsTable,
+  auditLogs as auditLogsTable,
 } from "@workspace/db";
 import { notifyAdmin, notifyUser } from "../../utils/notify.js";
 
@@ -287,6 +288,11 @@ router.get("/admin/recent-activity", requireAdmin, async (_req: Request, res: Re
 
 router.get("/admin/ads-list", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const list = await db.select().from(adsTable).orderBy(desc(adsTable.createdAt)).limit(200);
+  res.json(list);
+});
+
+router.get("/admin/audit-logs", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const list = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(500);
   res.json(list);
 });
 

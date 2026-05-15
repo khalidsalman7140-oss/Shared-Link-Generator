@@ -131,7 +131,17 @@ interface ServiceBooking {
   updatedAt: string;
 }
 
-type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings";
+interface AuditLog {
+  id: number;
+  userId: string | null;
+  userEmail: string | null;
+  action: string;
+  details: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings" | "logs";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -161,6 +171,8 @@ export default function AdminPage() {
   const [adPreviewUrl, setAdPreviewUrl] = useState("");
   const [bookings, setBookings] = useState<ServiceBooking[]>([]);
   const [bookingNotes, setBookingNotes] = useState<Record<number, string>>({});
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditFilter, setAuditFilter] = useState("");
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -215,12 +227,17 @@ export default function AdminPage() {
     if (r.ok) setBookings(await r.json());
   }, []);
 
+  const fetchAuditLogs = useCallback(async () => {
+    const r = await fetch("/api/admin/audit-logs");
+    if (r.ok) setAuditLogs(await r.json());
+  }, []);
+
   useEffect(() => {
     if (!isAdmin) { setLoading(false); return; }
-    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud(), fetchAds(), fetchBookings()])
+    Promise.all([fetchStats(), fetchUsers(), fetchRatings(), fetchPayments(), fetchAnnouncements(), fetchFraud(), fetchAds(), fetchBookings(), fetchAuditLogs()])
       .catch(() => setError("فشل تحميل البيانات"))
       .finally(() => setLoading(false));
-  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds, fetchBookings]);
+  }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds, fetchBookings, fetchAuditLogs]);
 
   const handleChangePlan = async () => {
     if (!editPlan) return;
@@ -478,6 +495,7 @@ export default function AdminPage() {
     { id: "ratings", label: "التقييمات", icon: Star, badge: ratings.length || undefined },
     { id: "ads", label: "الإعلانات المصورة", icon: ImagePlus, badge: adsList.filter(a => a.isActive).length || undefined },
     { id: "announcements", label: "الإشعارات", icon: Megaphone },
+    { id: "logs", label: "السجلات", icon: Activity, badge: auditLogs.length || undefined },
     { id: "security", label: "الأمان", icon: Shield, badge: suspiciousFraud.length || undefined },
   ];
 
@@ -1146,6 +1164,90 @@ export default function AdminPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* AUDIT LOGS */}
+        {tab === "logs" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                سجل نشاط المستخدمين ({auditLogs.length})
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  className="bg-background border border-input rounded-lg px-3 py-1.5 text-sm w-48"
+                  placeholder="بحث بالإيميل أو الإجراء..."
+                  value={auditFilter}
+                  onChange={e => setAuditFilter(e.target.value)}
+                />
+                <Button size="sm" variant="outline" onClick={fetchAuditLogs}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
+              </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "إجمالي الدخولات", value: auditLogs.filter(l => l.action === "login").length, color: "text-primary" },
+                { label: "مستخدمون فريدون", value: new Set(auditLogs.map(l => l.userId).filter(Boolean)).size, color: "text-emerald-400" },
+                { label: "نشاط اليوم", value: auditLogs.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length, color: "text-amber-400" },
+              ].map((s, i) => (
+                <div key={i} className="bg-card border border-border rounded-xl p-3 text-center">
+                  <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-border bg-muted/30">
+                    <tr>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">المستخدم</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">الإجراء</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs hidden md:table-cell">IP</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground text-xs">الوقت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {auditLogs
+                      .filter(l => !auditFilter ||
+                        (l.userEmail ?? "").toLowerCase().includes(auditFilter.toLowerCase()) ||
+                        l.action.toLowerCase().includes(auditFilter.toLowerCase()))
+                      .slice(0, 200)
+                      .map(l => (
+                      <tr key={l.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="p-3">
+                          <p className="text-xs font-medium">{l.userEmail ?? "—"}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{l.userId?.slice(0, 12) ?? "—"}</p>
+                        </td>
+                        <td className="p-3">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
+                            l.action === "login" ? "bg-emerald-500/10 text-emerald-400" : "bg-primary/10 text-primary"
+                          )}>
+                            {l.action === "login" ? "🔐 دخول" : l.action}
+                          </span>
+                        </td>
+                        <td className="p-3 hidden md:table-cell">
+                          <span className="font-mono text-xs text-muted-foreground">{l.ipAddress ?? "—"}</span>
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(l.createdAt).toLocaleString("ar")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!auditLogs.length && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    لا توجد سجلات نشاط بعد — ستظهر هنا عند دخول المستخدمين
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
