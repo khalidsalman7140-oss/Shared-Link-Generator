@@ -1,4 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import path from "path";
+import { existsSync } from "fs";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
@@ -75,5 +77,18 @@ app.use(
 );
 
 app.use("/api", router);
+
+// ── خدمة الواجهة الأمامية في الإنتاج ──────────────────────────
+if (process.env.NODE_ENV === "production") {
+  const staticDir = path.resolve(process.cwd(), "artifacts/khalid-agent/dist/public");
+  if (existsSync(staticDir)) {
+    app.use(express.static(staticDir, { maxAge: "1d" }));
+    // SPA fallback — أي مسار غير /api يرجع index.html
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api")) return next();
+      res.sendFile(path.join(staticDir, "index.html"));
+    });
+  }
+}
 
 export default app;

@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: yemenchat
+    env: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm --filter @workspace/khalid-agent run build && pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+
+      # ── قاعدة البيانات ─────────────────────────────────────────────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: yemenchat-db
+          property: connectionString
+
+      # ── الجلسة ──────────────────────────────────────────────────────
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # ── Clerk (مصادقة المستخدمين) ───────────────────────────────────
+      # احصل على المفاتيح من: https://dashboard.clerk.com
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      # بعد النشر الأول، عيّن هذا على: https://your-app.onrender.com/api/__clerk
+      - key: VITE_CLERK_PROXY_URL
+        sync: false
+
+      # ── Gemini AI (مجاني من Google AI Studio) ───────────────────────
+      # احصل على مفتاح مجاني من: https://aistudio.google.com/apikey
+      - key: AI_INTEGRATIONS_GEMINI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: AI_INTEGRATIONS_GEMINI_API_KEY
+        sync: false
+
+databases:
+  - name: yemenchat-db
+    databaseName: yemenchat
+    user: yemenchat
+    plan: free
