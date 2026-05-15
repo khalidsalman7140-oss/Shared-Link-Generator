@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Repeat } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
+import RecordButton from './RecordButton';
 
 const PROGRESS_TICK_MS = 60;
 
@@ -149,7 +150,17 @@ export default function VideoWithControls() {
 
   const barVisible = !collapsed || hovering || tapPinned;
 
-  if (!isIframed) return <VideoTemplate />;
+  if (!isIframed) {
+    return (
+      <div className="relative w-full h-screen">
+        <VideoTemplate />
+        {/* Floating download button for standalone view */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+          <RecordButton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-screen">
@@ -162,12 +173,16 @@ export default function VideoWithControls() {
       <div
         ref={sensorRef}
         className="absolute bottom-0 left-0 right-0 z-50 flex flex-col justify-end"
-        style={{ height: '25%' }}
+        style={{ height: '30%' }}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
         onPointerDown={handlePointerDown}
       >
         <div className="flex-1 w-full" aria-hidden="true" />
+        {/* Download row */}
+        <div className={`flex items-center justify-center pb-2 transition-all duration-200 ${barVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <RecordButton />
+        </div>
         <ControlBar
           visible={barVisible}
           collapsed={collapsed}
