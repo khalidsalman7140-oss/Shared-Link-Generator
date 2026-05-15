@@ -31,6 +31,7 @@ const BookingPage = lazy(() => import("@/pages/booking"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const ToolsPage = lazy(() => import("@/pages/tools"));
 const HubPage = lazy(() => import("@/pages/hub"));
+const DesignPage = lazy(() => import("@/pages/design"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const SignInPage = () => (
@@ -238,6 +239,7 @@ function AppRouter() {
                 )} />
                 <Route path="/admin" component={AdminPage} />
                 <Route path="/hub" component={HubPage} />
+                <Route path="/design" component={DesignPage} />
                 <Route component={NotFound} />
               </Switch>
             </Suspense>

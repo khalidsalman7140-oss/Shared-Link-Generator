@@ -16,6 +16,7 @@ import {
   User,
   Info,
   Wrench,
+  Presentation,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -246,6 +247,11 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
 
           {/* 5. الدردشة */}
           {navItem("/chat", <MessageSquare className="w-4 h-4 text-primary" />, "الدردشة")}
+
+          {/* 5b. تصميم مرئي */}
+          <Show when="signed-in">
+            {navItem("/design", <Presentation className="w-4 h-4 text-pink-400" />, "تصميم مرئي بالذكاء")}
+          </Show>
 
           {/* 6. الإنتاج والاستهلاك */}
           <Show when="signed-in">

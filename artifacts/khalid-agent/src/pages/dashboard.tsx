@@ -145,17 +145,21 @@ export default function DashboardPage() {
   const isPaid           = usage?.plan && usage.plan !== "free";
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground"
-      style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.08) 0%, transparent 50%), hsl(240 10% 4%)" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground">
 
-      {/* Header */}
-      <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      {/* Cover — user photo as full-width banner */}
+      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary/20 via-violet-100 to-indigo-50">
+        {user.imageUrl && (
+          <img src={user.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-top opacity-20 blur-sm scale-110" aria-hidden />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-background/80" />
+        {/* Header nav on top of cover */}
+        <div className="relative z-10 flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
             <LayoutDashboard className="w-5 h-5 text-primary" />
             <div>
               <h1 className="text-sm font-bold text-primary">لوحتي</h1>
-              <p className="text-[10px] text-muted-foreground">مركز إدارة حسابك</p>
+              <p className="text-[10px] text-foreground/60">مركز إدارة حسابك</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -169,11 +173,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 -mt-12 relative z-10">
 
-        {/* Profile Card */}
-        <div className="bg-card border border-border/50 rounded-2xl p-5 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full border-2 border-primary/50 overflow-hidden bg-primary/10 shrink-0 flex items-center justify-center font-bold text-xl text-primary">
+        {/* Profile Card — avatar overlaps the cover */}
+        <div className="bg-card border border-border/50 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-20 h-20 rounded-full border-4 border-background overflow-hidden bg-primary/10 shrink-0 flex items-center justify-center font-bold text-2xl text-primary shadow-md">
             {user.imageUrl
               ? <img src={user.imageUrl} alt={displayName} className="w-full h-full object-cover" />
               : displayName[0]?.toUpperCase() ?? "؟"}
