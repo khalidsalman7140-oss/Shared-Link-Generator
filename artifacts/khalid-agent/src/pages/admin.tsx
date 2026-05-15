@@ -488,7 +488,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary/50 shrink-0">
-              <img src="/khalid.jpg" alt="Admin" className="w-full h-full object-cover object-top"
+              <img src="/khalid.jpg" alt="Admin" className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
             <div>

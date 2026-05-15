@@ -79,7 +79,7 @@ export default function Landing() {
           <div className="relative">
             <div className="absolute -inset-3 rounded-full bg-primary/20 blur-xl animate-pulse" />
             <div className="relative w-28 h-28 rounded-full border-2 border-primary/60 overflow-hidden bg-primary/10 shadow-[0_0_60px_rgba(124,58,237,0.6)]">
-              <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="w-full h-full object-cover object-top"
+              <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               <div className="absolute inset-0 flex items-center justify-center font-black text-3xl text-primary">KS</div>
             </div>

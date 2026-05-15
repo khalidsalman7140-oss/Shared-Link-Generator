@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -113,13 +113,21 @@ function PageLoader() {
   );
 }
 
+const ADMIN_EMAIL = "khalidsalman7140@gmail.com";
+
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in"><Redirect to="/chat" /></Show>
-      <Show when="signed-out"><Landing /></Show>
-    </>
-  );
+  const { isSignedIn, user } = useUser();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isSignedIn || !user) return;
+    const email = user.emailAddresses?.[0]?.emailAddress ?? "";
+    setLocation(email === ADMIN_EMAIL ? "/admin" : "/chat", { replace: true });
+  }, [isSignedIn, user, setLocation]);
+
+  if (!isSignedIn) return <Landing />;
+  // Spinner while redirecting
+  return <PageLoader />;
 }
 
 function ChatRoute() {

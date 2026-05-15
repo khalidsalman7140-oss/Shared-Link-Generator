@@ -80,7 +80,7 @@ export default function WebsitePage() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-primary/50">
-              <img src={`${basePath}/khalid.jpg`} alt="KS" className="w-full h-full object-cover object-top"
+              <img src={`${basePath}/khalid.jpg`} alt="KS" className="w-full h-full object-contain"
                 onError={(e) => {
                   const el = e.target as HTMLImageElement;
                   el.style.display = "none";
@@ -127,8 +127,8 @@ export default function WebsitePage() {
             مدعوم بـ Gemini 2.5 Flash — أقوى نموذج ذكاء اصطناعي
           </div>
 
-          <div className="w-28 h-28 rounded-3xl overflow-hidden border-4 border-primary/50 shadow-[0_0_80px_rgba(124,58,237,0.6)] mx-auto mb-6">
-            <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="w-full h-full object-cover object-top" />
+          <div className="w-28 h-28 rounded-3xl overflow-hidden border-4 border-primary/50 shadow-[0_0_80px_rgba(124,58,237,0.6)] mx-auto mb-6 bg-primary/10">
+            <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="w-full h-full object-contain" />
           </div>
 
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-4"
@@ -340,7 +340,7 @@ export default function WebsitePage() {
       <footer className="border-t border-border/30 py-8 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
           <div className="w-7 h-7 rounded-lg overflow-hidden border border-primary/30">
-            <img src={`${basePath}/khalid.jpg`} alt="" className="w-full h-full object-cover object-top" />
+            <img src={`${basePath}/khalid.jpg`} alt="" className="w-full h-full object-contain" />
           </div>
           <span className="font-bold text-sm">خالد سلمان — الوكيل الذكي</span>
         </div>
