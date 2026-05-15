@@ -425,8 +425,8 @@ export default function AdminPage() {
       }
     };
     return (
-      <div dir="rtl" className="min-h-screen bg-[#07070f] flex items-center justify-center px-4"
-        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.3) 0%, transparent 60%), #07070f" }}>
+      <div dir="rtl" className="min-h-screen bg-background text-foreground flex items-center justify-center px-4"
+        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.3) 0%, transparent 60%)" }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-8 space-y-3">
             <div className="text-5xl mb-4">☪️</div>

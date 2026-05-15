@@ -73,8 +73,8 @@ export default function BookingPage() {
 
   if (submitted) {
     return (
-      <div dir="rtl" className="min-h-screen flex items-center justify-center px-4 bg-[#07070f]"
-        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.2) 0%, transparent 60%), #07070f" }}>
+      <div dir="rtl" className="min-h-screen flex items-center justify-center px-4 bg-background text-foreground"
+        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.2) 0%, transparent 60%)" }}>
         <div className="max-w-md w-full text-center space-y-6">
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 flex items-center justify-center mx-auto shadow-[0_0_60px_rgba(16,185,129,0.3)]">
             <CheckCircle2 className="w-12 h-12 text-emerald-400" />
@@ -107,8 +107,8 @@ export default function BookingPage() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#07070f] text-foreground"
-      style={{ background: "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(124,58,237,0.2) 0%, transparent 60%), #07070f" }}>
+    <div dir="rtl" className="min-h-screen bg-background text-foreground"
+      style={{ background: "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(124,58,237,0.2) 0%, transparent 60%)" }}>
       <div className="max-w-2xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="mb-8">

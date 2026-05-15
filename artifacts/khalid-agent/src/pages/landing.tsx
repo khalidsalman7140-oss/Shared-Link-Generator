@@ -48,7 +48,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#07070f] text-foreground overflow-x-hidden">
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#07070f] text-white overflow-x-hidden">
       {/* Animated canvas bg */}
       <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
       {/* Gradient overlays */}
@@ -79,7 +79,7 @@ export default function Landing() {
           <div className="relative">
             <div className="absolute -inset-3 rounded-full bg-primary/20 blur-xl animate-pulse" />
             <div className="relative w-28 h-28 rounded-full border-2 border-primary/60 overflow-hidden bg-primary/10 shadow-[0_0_60px_rgba(124,58,237,0.6)]">
-              <div className="absolute inset-0 flex items-center justify-center font-black text-3xl text-primary/50">KS</div>
+              <div className="absolute inset-0 flex items-center justify-center font-black text-3xl text-primary/50">خ.س</div>
               <img src={`${basePath}/khalid.jpg`} alt="خالد سلمان" className="relative z-10 w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>

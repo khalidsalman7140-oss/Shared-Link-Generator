@@ -77,8 +77,8 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 240 10% 98%;
-  --foreground: 240 10% 10%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 4%;
   --border: 240 5.9% 90%;
   --card: 0 0% 100%;
   --card-foreground: 240 10% 10%;

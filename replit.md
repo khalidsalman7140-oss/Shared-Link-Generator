@@ -71,7 +71,7 @@
 
 ## User preferences
 
-- Dark theme by default
+- Light/white theme by default (user requested switch from dark to white)
 - Arabic RTL support
 - Khaled Salman's contact: WhatsApp +967783701365 / +967779435445, Telegram @kshskshg, Email khalidsalman7140@gmail.com
 - Khaled's photo: not yet added — landing page uses KS logo placeholder. When received, save to `artifacts/khalid-agent/public/khalid.jpg`

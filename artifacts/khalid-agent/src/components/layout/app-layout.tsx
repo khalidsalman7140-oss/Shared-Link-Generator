@@ -103,24 +103,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isMobile={isMobile} />
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        {/* Avatar menu — top right corner */}
-        <div className="absolute top-3 left-3 z-30">
-          <AvatarMenu />
-        </div>
-
-        {/* Mobile menu button — top right */}
-        {isMobile && (
-          <div className="absolute top-3 right-3 z-30">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsSidebarOpen(true)}
-              className="h-9 w-9 bg-white/90 backdrop-blur-sm border-gray-200 text-gray-600 shadow-sm"
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
+        {/* Top bar: avatar (right) + mobile hamburger (left) */}
+        <div className="absolute top-3 inset-x-3 z-30 flex items-center justify-between pointer-events-none">
+          {/* Mobile menu button — left side (RTL start) */}
+          <div className="pointer-events-auto">
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsSidebarOpen(true)}
+                className="h-9 w-9 bg-white/90 backdrop-blur-sm border-gray-200 text-gray-600 shadow-sm"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-        )}
+          {/* Avatar — right side (RTL end = visual left of screen before sidebar) */}
+          <div className="pointer-events-auto">
+            <AvatarMenu />
+          </div>
+        </div>
 
         <div className="flex-1 overflow-hidden relative">
           {children}

@@ -153,10 +153,10 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
       <div className="px-4 py-4 flex items-center justify-between shrink-0 border-b border-sidebar-border/50">
         <Link href="/" onClick={() => isMobile && setIsOpen(false)}>
           <div className="flex items-center gap-2.5 cursor-pointer group">
-            <img src="/logo.svg" alt="KS" className="w-8 h-8 group-hover:opacity-80 transition-opacity" />
+            <img src="/logo.svg" alt="يمن شات" className="w-8 h-8 group-hover:opacity-80 transition-opacity" />
             <div>
               <h2 className="text-base font-bold text-primary leading-tight">يمن شات</h2>
-              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Yemen Chat</p>
+              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">الوكيل الذكي</p>
             </div>
           </div>
         </Link>

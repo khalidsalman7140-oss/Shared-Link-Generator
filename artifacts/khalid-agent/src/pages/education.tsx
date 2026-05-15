@@ -35,8 +35,8 @@ const stats = [
 export default function EducationPage() {
   const { isRTL } = useI18n();
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#07070f] text-foreground overflow-x-hidden"
-      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(59,130,246,0.2) 0%, transparent 60%), #07070f" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground overflow-x-hidden"
+      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(59,130,246,0.08) 0%, transparent 60%)" }}>
       <div className="max-w-5xl mx-auto px-4 py-10 space-y-10">
 
         <div className="flex items-center justify-between flex-wrap gap-3">

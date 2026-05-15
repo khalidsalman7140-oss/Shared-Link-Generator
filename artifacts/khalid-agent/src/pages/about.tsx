@@ -31,8 +31,8 @@ export default function AboutPage() {
   ];
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#07070f] text-foreground"
-      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(124,58,237,0.25) 0%, transparent 60%), #07070f" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground"
+      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(124,58,237,0.08) 0%, transparent 60%)" }}>
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-10">
 
         {/* Back */}

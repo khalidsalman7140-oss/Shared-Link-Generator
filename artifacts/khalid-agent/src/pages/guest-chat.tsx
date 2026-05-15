@@ -138,8 +138,7 @@ export default function GuestChat() {
   };
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-screen bg-background text-foreground"
-      style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.08) 0%, transparent 50%), hsl(240 10% 4%)" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col h-screen bg-background text-foreground">
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50 backdrop-blur-sm">

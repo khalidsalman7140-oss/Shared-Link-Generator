@@ -88,8 +88,8 @@ export default function VisionPage() {
   const filtered = filter === "all" ? AXES : AXES.filter(a => a.status === filter);
 
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-[#07070f] text-foreground"
-      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(124,58,237,0.25) 0%, transparent 60%), #07070f" }}>
+    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground"
+      style={{ background: "radial-gradient(ellipse 80% 50% at 50% -5%, rgba(124,58,237,0.08) 0%, transparent 60%)" }}>
       <div className="max-w-6xl mx-auto px-4 py-12 space-y-10">
 
         <Link href="/"><Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className={cn("w-4 h-4", isRTL && "rotate-180")} />{isRTL ? "الرئيسية" : "Home"}</Button></Link>
