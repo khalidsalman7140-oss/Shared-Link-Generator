@@ -29,6 +29,7 @@ const EmergencyPage = lazy(() => import("@/pages/emergency"));
 const WebsitePage = lazy(() => import("@/pages/website"));
 const BookingPage = lazy(() => import("@/pages/booking"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
+const ToolsPage = lazy(() => import("@/pages/tools"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const SignInPage = () => (
@@ -228,6 +229,12 @@ function AppRouter() {
                 <Route path="/website" component={WebsitePage} />
                 <Route path="/booking" component={BookingPage} />
                 <Route path="/dashboard" component={DashboardPage} />
+                <Route path="/tools" component={() => (
+                  <>
+                    <Show when="signed-in"><ToolsPage /></Show>
+                    <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+                  </>
+                )} />
                 <Route path="/admin" component={AdminPage} />
                 <Route component={NotFound} />
               </Switch>

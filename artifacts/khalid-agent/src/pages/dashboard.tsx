@@ -19,6 +19,7 @@ interface UsageInfo {
   designTaskLimit: number;
   totalMessages: number;
   vipLevel: string;
+  validUntil: string | null;
 }
 
 interface Booking {
@@ -214,39 +215,87 @@ export default function DashboardPage() {
         </div>
 
         {/* Subscription Card */}
-        {usage && (
-          <div className={cn("border rounded-2xl p-5", isPaid ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card")}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-sm">اشتراكك الحالي</h3>
+        {usage && (() => {
+          const daysLeft = usage.validUntil
+            ? Math.ceil((new Date(usage.validUntil).getTime() - Date.now()) / 86400000)
+            : null;
+          const isExpiringSoon = daysLeft !== null && daysLeft <= 7;
+          return (
+            <div className={cn("border rounded-2xl p-5 space-y-4", isPaid ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-sm">اشتراكك الحالي</h3>
+                </div>
+                <PlanBadge plan={usage.plan} />
               </div>
-              <PlanBadge plan={usage.plan} />
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">الرسائل الإجمالية</p>
-                <p className="font-bold text-lg">{usage.totalMessages}</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">إجمالي رسائلك</p>
+                  <p className="font-bold text-lg">{usage.totalMessages}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">الوصول اللامحدود</p>
+                  <p className={cn("font-bold text-sm", usage.unlimited ? "text-emerald-400" : "text-muted-foreground")}>
+                    {usage.unlimited ? "✅ نعم" : "❌ لا"}
+                  </p>
+                </div>
+                {usage.validUntil && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs mb-1">تاريخ انتهاء الاشتراك</p>
+                    <div className={cn(
+                      "flex items-center gap-2 rounded-lg px-3 py-2 border text-sm font-medium",
+                      isExpiringSoon && daysLeft! <= 3
+                        ? "bg-red-500/10 border-red-500/30 text-red-400"
+                        : isExpiringSoon
+                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                    )}>
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {new Date(usage.validUntil).toLocaleDateString("ar-YE", { year: "numeric", month: "long", day: "numeric" })}
+                      </span>
+                      {daysLeft !== null && (
+                        <span className="mr-auto text-xs font-normal">
+                          {daysLeft <= 0
+                            ? "منتهي ⚠️"
+                            : daysLeft === 1
+                            ? "يوم واحد متبقٍ ⚠️"
+                            : `${daysLeft} يوم متبقٍ`}
+                        </span>
+                      )}
+                    </div>
+                    {isExpiringSoon && (
+                      <Link href="/subscribe">
+                        <Button size="sm" className="w-full mt-2 text-xs gap-1 shadow-lg shadow-primary/20">
+                          <Zap className="w-3.5 h-3.5" />تجديد الاشتراك الآن
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">الوصول اللامحدود</p>
-                <p className={cn("font-bold text-sm", usage.unlimited ? "text-emerald-400" : "text-muted-foreground")}>
-                  {usage.unlimited ? "✅ نعم" : "❌ لا"}
-                </p>
-              </div>
-            </div>
-            {!isPaid && (
-              <div className="mt-3 pt-3 border-t border-border/30">
-                <Link href="/pricing">
-                  <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-primary/30 hover:border-primary/60">
-                    <Crown className="w-3.5 h-3.5 text-primary" />عرض الباقات المتاحة
+              {isPaid && (
+                <Link href="/tools">
+                  <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-primary/30 hover:border-primary/60 hover:bg-primary/5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />فتح أدوات الإنتاج المتقدمة
                     <ChevronRight className="w-3.5 h-3.5 mr-auto" />
                   </Button>
                 </Link>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+              {!isPaid && (
+                <div className="pt-1 border-t border-border/30">
+                  <Link href="/pricing">
+                    <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-primary/30 hover:border-primary/60">
+                      <Crown className="w-3.5 h-3.5 text-primary" />عرض الباقات المتاحة
+                      <ChevronRight className="w-3.5 h-3.5 mr-auto" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Payment Requests */}
         {payments.length > 0 && (

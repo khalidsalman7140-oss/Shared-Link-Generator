@@ -266,15 +266,16 @@ router.get("/gemini/conversations/:id/messages", requireAuth, async (req: Reques
 router.get("/gemini/usage", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const plan = await getUserPlan(userId);
+  const [planRow] = await db.select().from(userPlansTable).where(eq(userPlansTable.userId, userId));
   const designTasksToday = plan === "free" ? await getDesignTaskCount(userId) : 0;
-  // Total messages for VIP system
   const totalRows = await db
     .select({ total: sql<number>`sum(${userUsageTable.messageCount})` })
     .from(userUsageTable)
     .where(eq(userUsageTable.userId, userId));
   const totalMessages = Number(totalRows[0]?.total ?? 0);
   const vipLevel = totalMessages >= 500 ? "gold" : totalMessages >= 100 ? "silver" : null;
-  res.json({ plan, unlimited: plan !== "free", designTasksToday, designTaskLimit: 5, totalMessages, vipLevel });
+  const validUntil = planRow?.validUntil ? new Date(planRow.validUntil).toISOString() : null;
+  res.json({ plan, unlimited: plan !== "free", designTasksToday, designTaskLimit: 5, totalMessages, vipLevel, validUntil });
 });
 
 router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Request, res: Response): Promise<void> => {
@@ -368,6 +369,7 @@ router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Reque
 
 router.post("/gemini/generate-image", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip;
   const plan = await getUserPlan(userId);
   if (plan === "free") {
     res.status(402).json({ error: "premium_required", message: "توليد الصور يتطلب خطة مدفوعة. اشترك من $2.99/أسبوع." });
@@ -376,7 +378,58 @@ router.post("/gemini/generate-image", requireAuth, async (req: Request, res: Res
   const parsed = GenerateGeminiImageBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { b64_json, mimeType } = await generateImage(parsed.data.prompt);
+  await logAuditEvent(userId, "image_generated", `Prompt: ${parsed.data.prompt.slice(0, 120)}`, ip);
   res.json({ b64_json, mimeType });
+});
+
+router.post("/gemini/web-builder", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip;
+  const plan = await getUserPlan(userId);
+  if (plan === "free") {
+    res.status(402).json({ error: "premium_required", message: "بناء المواقع يتطلب خطة مدفوعة. اشترك من $2.99/أسبوع." });
+    return;
+  }
+  const { description } = req.body as { description?: string };
+  if (!description?.trim()) { res.status(400).json({ error: "description is required" }); return; }
+
+  const systemPrompt = `أنت مطوّر ويب محترف متخصص في إنشاء مواقع HTML كاملة.
+مهمتك: اكتب موقعاً HTML كاملاً في ملف واحد بناءً على وصف المستخدم.
+
+قواعد صارمة:
+1. اكتب كود HTML كامل فقط يبدأ بـ <!DOCTYPE html> وينتهي بـ </html>
+2. ضع كل CSS في وسم <style> داخل <head>
+3. ضع كل JavaScript في وسم <script> قبل </body>
+4. لا تستخدم مكتبات خارجية عدا Google Fonts إن لزم
+5. اجعله جميلاً وحديثاً ومتجاوباً مع الموبايل تماماً
+6. إذا كان الوصف بالعربية: استخدم dir="rtl" وخط Cairo من Google Fonts
+7. أرجع فقط كود HTML الخام — بدون شرح ولا markdown ولا code blocks
+8. اجعل التصميم احترافياً مع ألوان متناسقة وتجربة مستخدم ممتازة`;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  let fullCode = "";
+  try {
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: description }] }],
+      config: { maxOutputTokens: 16384, systemInstruction: systemPrompt },
+    });
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        fullCode += chunk.text;
+        res.write(`data: ${JSON.stringify({ content: chunk.text })}\n\n`);
+      }
+    }
+    await logAuditEvent(userId, "web_built", `Desc: ${description.slice(0, 120)} | Size: ${fullCode.length} chars`, ip);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  } catch (err) {
+    req.log.error({ err }, "Web builder error");
+    res.write(`data: ${JSON.stringify({ error: "حدث خطأ في التوليد، حاول مجدداً" })}\n\n`);
+  }
+  res.end();
 });
 
 export default router;

@@ -15,6 +15,7 @@ import {
   Zap,
   CalendarCheck,
   LayoutDashboard,
+  Wand2,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -242,6 +243,19 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
           >
             <LayoutDashboard className="h-4 w-4" />
             لوحتي
+          </Link>
+          <Link
+            href="/tools"
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+              location === "/tools"
+                ? "bg-primary/20 text-primary font-medium"
+                : "hover:bg-primary/10 text-primary/70 hover:text-primary",
+            )}
+          >
+            <Wand2 className="h-4 w-4" />
+            أدوات الإنتاج
+            <span className="mr-auto text-[9px] bg-primary/20 text-primary border border-primary/30 rounded-full px-1.5 py-0.5">PRO</span>
           </Link>
         </Show>
       </div>

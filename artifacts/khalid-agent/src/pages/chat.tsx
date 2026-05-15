@@ -430,23 +430,35 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Plan / VIP badge */}
-          <div className="mb-2 flex justify-end gap-2">
-            {vipLevel === "gold" && (
-              <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
-                <Trophy className="w-2.5 h-2.5" />VIP ذهبي
-              </span>
-            )}
-            {vipLevel === "silver" && (
-              <span className="text-[10px] bg-slate-400/10 text-slate-300 border border-slate-400/30 rounded-full px-2 py-0.5 flex items-center gap-1">
-                <Trophy className="w-2.5 h-2.5" />VIP فضي
-              </span>
-            )}
-            {userPlan !== "free" && (
-              <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 flex items-center gap-1">
-                <Crown className="w-2.5 h-2.5" />{userPlan}
-              </span>
-            )}
+          {/* Plan / VIP badge + Tools shortcut */}
+          <div className="mb-2 flex justify-between items-center gap-2">
+            <div className="flex items-center gap-2">
+              {userPlan !== "free" && (
+                <Link href="/tools">
+                  <button className="text-[10px] bg-primary/10 text-primary border border-primary/30 rounded-full px-2.5 py-1 flex items-center gap-1 hover:bg-primary/20 transition-colors">
+                    <Zap className="w-2.5 h-2.5" />
+                    {lang === "ar" ? "أدوات الإنتاج" : "Production Tools"}
+                  </button>
+                </Link>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {vipLevel === "gold" && (
+                <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                  <Trophy className="w-2.5 h-2.5" />VIP ذهبي
+                </span>
+              )}
+              {vipLevel === "silver" && (
+                <span className="text-[10px] bg-slate-400/10 text-slate-300 border border-slate-400/30 rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <Trophy className="w-2.5 h-2.5" />VIP فضي
+                </span>
+              )}
+              {userPlan !== "free" && (
+                <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <Crown className="w-2.5 h-2.5" />{userPlan}
+                </span>
+              )}
+            </div>
           </div>
 
           <form
