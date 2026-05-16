@@ -14,6 +14,7 @@ import pushRouter from "./push.js";
 import logosRouter from "./logos.js";
 import booksRouter from "./books.js";
 import docsRouter from "./docs.js";
+import messagesRouter from "./messages/index.js";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(pushRouter);
 router.use(logosRouter);
 router.use(booksRouter);
 router.use(docsRouter);
+router.use(messagesRouter);
 
 export default router;

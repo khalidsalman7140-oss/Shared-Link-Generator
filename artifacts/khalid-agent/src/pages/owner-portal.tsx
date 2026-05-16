@@ -17,6 +17,7 @@ interface AdminUser { userId: string; email: string; name: string; imageUrl: str
 interface Payment { id: number; userId: string; planRequested: string; status: string; transferNumber: string; notes: string; createdAt: string; receiptImage?: string; }
 interface Review { id: number; stars: number; comment: string; createdAt: string; }
 interface UserDetail { conversations: {id:number;title:string|null;createdAt:string}[]; payments: Payment[]; bookings: {id:number;serviceTitle:string;status:string;createdAt:string}[]; plan: {plan:string;validUntil:string|null}|null; totalMessages: number; }
+interface AdminMsg { id: number; userId: string; content: string; direction: string; isRead: boolean; createdAt: string; }
 interface LiveEvent { pendingCount: number; recentPayments: Payment[]; recentConvs: {id:number;title:string|null;createdAt:string}[]; ts: number; }
 
 /* ─────────────────────── consts ─────────────────────── */
@@ -174,6 +175,16 @@ export default function OwnerPortal() {
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  /* detail sub-tab */
+  const [detailTab, setDetailTab] = useState<"activity"|"messages">("activity");
+
+  /* admin ↔ user messages */
+  const [userMsgs, setUserMsgs] = useState<AdminMsg[]>([]);
+  const [userMsgsLoading, setUserMsgsLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const msgEndRef = useRef<HTMLDivElement>(null);
+
   /* admin notes per user — persisted in localStorage */
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
@@ -287,11 +298,41 @@ export default function OwnerPortal() {
     setDetailLoading(true);
     setNoteText(loadNote(u.userId));
     setNoteSaved(false);
+    setDetailTab("activity");
+    setUserMsgs([]);
+    setReplyText("");
     try {
       const r = await fetch(`/api/admin/users/${u.userId}/detail`);
       if (r.ok) setUserDetail(await r.json() as UserDetail);
     } catch {}
     finally { setDetailLoading(false); }
+  };
+
+  const fetchUserMsgs = async (userId: string) => {
+    setUserMsgsLoading(true);
+    try {
+      const r = await fetch(`/api/admin/user-messages/${userId}`);
+      if (r.ok) setUserMsgs(await r.json() as AdminMsg[]);
+    } catch {}
+    finally { setUserMsgsLoading(false); }
+  };
+
+  const sendReply = async () => {
+    if (!selectedUser || !replyText.trim() || replySending) return;
+    setReplySending(true);
+    try {
+      const r = await fetch(`/api/admin/user-messages/${selectedUser.userId}/reply`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: replyText.trim() }),
+      });
+      if (r.ok) {
+        const m = await r.json() as AdminMsg;
+        setUserMsgs(prev => [...prev, m]);
+        setReplyText("");
+        setTimeout(() => msgEndRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
+      }
+    } catch {}
+    finally { setReplySending(false); }
   };
 
   /* ── actions ── */
@@ -912,9 +953,87 @@ export default function OwnerPortal() {
                 </div>
               </div>
 
-              {detailLoading ? (
+              {/* sub-tab switcher */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                {([
+                  { id: "activity", label: "النشاط" },
+                  { id: "messages", label: "المراسلة" },
+                ] as const).map(t => (
+                  <button key={t.id}
+                    onClick={() => {
+                      setDetailTab(t.id);
+                      if (t.id === "messages" && userMsgs.length === 0) fetchUserMsgs(selectedUser.userId);
+                    }}
+                    style={{ flex: 1, background: detailTab===t.id?"#000":"#f1f5f9", color: detailTab===t.id?"#fff":"#374151", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "8px", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── messages sub-tab ── */}
+              {detailTab === "messages" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "12px 12px 0 0", padding: "10px 13px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: "1rem" }}>💬</span>
+                    <p style={{ fontWeight: 900, fontSize: "0.82rem", color: "#000", margin: 0 }}>محادثة مع {selectedUser.name || selectedUser.email}</p>
+                  </div>
+                  <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", minHeight: 220, maxHeight: 340, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: 9, background: "#fff" }}>
+                    {userMsgsLoading ? (
+                      <div style={{ textAlign: "center", padding: 30, color: "#9ca3af", fontSize: "0.8rem" }}>جاري التحميل...</div>
+                    ) : userMsgs.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "30px 16px" }}>
+                        <p style={{ fontSize: "2rem", margin: "0 0 8px" }}>✉️</p>
+                        <p style={{ color: "#9ca3af", fontSize: "0.78rem", margin: 0 }}>لا توجد رسائل — أرسل أول رسالة أدناه</p>
+                      </div>
+                    ) : (
+                      <>
+                        {userMsgs.map(m => {
+                          const isAdmin = m.direction === "admin_to_user";
+                          return (
+                            <div key={m.id} style={{ display: "flex", justifyContent: isAdmin ? "flex-end" : "flex-start" }}>
+                              <div style={{
+                                maxWidth: "80%",
+                                background: isAdmin ? "#000" : "#f1f5f9",
+                                color: isAdmin ? "#fff" : "#000",
+                                borderRadius: isAdmin ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                                padding: "9px 13px",
+                              }}>
+                                {!isAdmin && <p style={{ fontSize: "0.58rem", color: "#7c3aed", fontWeight: 800, margin: "0 0 3px" }}>👤 المستخدم</p>}
+                                {isAdmin && <p style={{ fontSize: "0.58rem", color: "#f59e0b", fontWeight: 800, margin: "0 0 3px" }}>👑 الإدارة</p>}
+                                <p style={{ fontSize: "0.78rem", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap" }}>{m.content}</p>
+                                <p style={{ fontSize: "0.55rem", opacity: 0.55, margin: "4px 0 0", textAlign: "left" }}>
+                                  {new Date(m.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div ref={msgEndRef} />
+                      </>
+                    )}
+                  </div>
+                  <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", background: "#fff", padding: "9px 11px", display: "flex", gap: 7 }}>
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                      placeholder="اكتب ردك... (Enter للإرسال)"
+                      rows={2}
+                      style={{ flex: 1, background: "#f8fafc", border: "1.5px solid #e2e8f0", color: "#000", padding: "8px 11px", borderRadius: 9, fontSize: "0.78rem", fontFamily: "inherit", resize: "none", outline: "none" }}
+                    />
+                    <button onClick={sendReply} disabled={!replyText.trim() || replySending}
+                      style={{ background: replyText.trim()&&!replySending?"#000":"#d1d5db", color: "#fff", border: "none", borderRadius: 9, width: 38, cursor: replyText.trim()&&!replySending?"pointer":"not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {replySending
+                        ? <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
+                        : <Send style={{ width: 14, height: 14 }} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {detailTab === "activity" && detailLoading ? (
                 <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>جاري تحميل بيانات المستخدم...</div>
-              ) : userDetail ? (
+              ) : detailTab === "activity" && userDetail ? (
                 <>
                   {/* stats */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>

@@ -1,106 +1,75 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import {
   CreditCard, CalendarCheck, MessageSquare, Crown, Zap, Sparkles,
-  Building2, Star, Clock, CheckCircle2, Circle, XCircle, ArrowLeft,
-  RefreshCw, ChevronRight, Receipt, LayoutDashboard, ExternalLink,
+  Building2, Star, Clock, CheckCircle2, XCircle, ArrowLeft,
+  RefreshCw, ChevronRight, Receipt, LayoutDashboard, Send,
+  Globe, Palette, FileText, Code2, Image as ImageIcon, Archive,
+  BellDot, Inbox, UserCircle, Filter, Briefcase,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-interface UsageInfo {
-  plan: string;
-  unlimited: boolean;
-  designTasksToday: number;
-  designTaskLimit: number;
-  totalMessages: number;
-  vipLevel: string;
-  validUntil: string | null;
-}
+/* ─────── types ─────── */
+interface UsageInfo { plan: string; unlimited: boolean; designTasksToday: number; designTaskLimit: number; totalMessages: number; vipLevel: string; validUntil: string | null; }
+interface Booking { id: number; serviceTitle: string; serviceType: string; status: string; urgency: string; budget: string | null; adminNotes: string | null; createdAt: string; updatedAt: string; }
+interface PaymentReq { id: number; planRequested: string; transferService: string | null; amount: string | null; status: string; createdAt: string; reviewNotes: string | null; }
+interface Conversation { id: number; title: string | null; createdAt: string; }
+interface Work { id: string; type: string; label: string; emoji: string; title: string; date: string; convId: number; }
+interface ArchiveData { works: Work[]; total: number; stats: Record<string,number>; totalConvs: number; }
+interface AdminMsg { id: number; userId: string; content: string; direction: string; isRead: boolean; createdAt: string; }
 
-interface Booking {
-  id: number;
-  serviceTitle: string;
-  serviceType: string;
-  status: string;
-  urgency: string;
-  budget: string | null;
-  adminNotes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PaymentRequest {
-  id: number;
-  planRequested: string;
-  transferService: string | null;
-  amount: string | null;
-  status: string;
-  createdAt: string;
-  reviewNotes: string | null;
-}
-
-interface Conversation {
-  id: number;
-  title: string | null;
-  createdAt: string;
-}
-
-const PLAN_ICONS: Record<string, typeof Star> = {
-  free: Star, weekly: Zap, monthly: Sparkles, annual: Crown, enterprise: Building2,
+/* ─────── consts ─────── */
+const PLAN_COLOR: Record<string, string> = { free:"#6b7280", weekly:"#3b82f6", monthly:"#8b5cf6", annual:"#f59e0b", enterprise:"#10b981" };
+const PLAN_AR: Record<string, string> = { free:"مجاني", weekly:"أسبوعي", monthly:"شهري", annual:"سنوي", enterprise:"مؤسسي" };
+const PLAN_ICON: Record<string, typeof Star> = { free:Star, weekly:Zap, monthly:Sparkles, annual:Crown, enterprise:Building2 };
+const BOOKING_STATUS: Record<string,{label:string;color:string}> = {
+  pending:     { label:"بانتظار المراجعة", color:"#b45309" },
+  reviewing:   { label:"قيد المراجعة",    color:"#1d4ed8" },
+  "in-progress":{ label:"قيد التنفيذ",   color:"#7c3aed" },
+  completed:   { label:"مكتمل ✅",         color:"#059669" },
+  cancelled:   { label:"ملغي",            color:"#dc2626" },
 };
-
-const PLAN_LABELS: Record<string, string> = {
-  free: "مجاني", weekly: "أسبوعي", monthly: "شهري", annual: "سنوي", enterprise: "مؤسسي",
+const PAYMENT_STATUS: Record<string,{label:string;color:string;bg:string}> = {
+  pending:  { label:"⏳ بانتظار التأكيد", color:"#b45309", bg:"#fffbeb" },
+  approved: { label:"✅ تم التفعيل",      color:"#166534", bg:"#f0fdf4" },
+  rejected: { label:"❌ مرفوض",           color:"#991b1b", bg:"#fef2f2" },
 };
+const WORK_TYPE_FILTER = ["الكل","website","logo","document","image","code"] as const;
+const WORK_FILTER_AR: Record<string,string> = { الكل:"الكل", website:"مواقع", logo:"شعارات", document:"وثائق", image:"صور", code:"أكواد" };
 
-const PLAN_COLORS: Record<string, string> = {
-  free: "text-slate-400 bg-slate-500/10 border-slate-500/20",
-  weekly: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-  monthly: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-  annual: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-  enterprise: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-};
-
-const BOOKING_STATUS: Record<string, { label: string; color: string; icon: typeof Circle }> = {
-  pending:     { label: "بانتظار المراجعة", color: "text-yellow-400 bg-yellow-500/10", icon: Clock },
-  reviewing:   { label: "قيد المراجعة",    color: "text-blue-400 bg-blue-500/10",     icon: RefreshCw },
-  "in-progress":{ label: "قيد التنفيذ",   color: "text-primary bg-primary/10",        icon: Zap },
-  completed:   { label: "مكتمل ✅",         color: "text-emerald-400 bg-emerald-500/10",icon: CheckCircle2 },
-  cancelled:   { label: "ملغي",             color: "text-destructive bg-destructive/10",icon: XCircle },
-};
-
-const PAYMENT_STATUS: Record<string, { label: string; color: string }> = {
-  pending:  { label: "⏳ بانتظار التأكيد", color: "text-yellow-400 bg-yellow-500/10" },
-  approved: { label: "✅ تم التفعيل",      color: "text-emerald-400 bg-emerald-500/10" },
-  rejected: { label: "❌ مرفوض",           color: "text-destructive bg-destructive/10" },
-};
-
-function PlanBadge({ plan }: { plan: string }) {
-  const Icon = PLAN_ICONS[plan] ?? Star;
-  return (
-    <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border", PLAN_COLORS[plan] ?? "text-slate-400 bg-slate-500/10 border-slate-500/20")}>
-      <Icon className="w-3 h-3" />{PLAN_LABELS[plan] ?? plan}
-    </span>
-  );
-}
-
+/* ════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
   const [, setLocation] = useLocation();
   const { isRTL } = useI18n();
 
-  const [usage, setUsage]         = useState<UsageInfo | null>(null);
-  const [bookings, setBookings]   = useState<Booking[]>([]);
-  const [payments, setPayments]   = useState<PaymentRequest[]>([]);
-  const [convs, setConvs]         = useState<Conversation[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview"|"works"|"messages"|"subscription">("overview");
 
-  const fetchAll = useCallback(async () => {
+  /* data */
+  const [usage, setUsage]           = useState<UsageInfo | null>(null);
+  const [bookings, setBookings]     = useState<Booking[]>([]);
+  const [payments, setPayments]     = useState<PaymentReq[]>([]);
+  const [convs, setConvs]           = useState<Conversation[]>([]);
+  const [loading, setLoading]       = useState(true);
+
+  /* archive */
+  const [archive, setArchive]       = useState<ArchiveData | null>(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [workFilter, setWorkFilter] = useState<string>("الكل");
+
+  /* messages */
+  const [msgs, setMsgs]             = useState<AdminMsg[]>([]);
+  const [msgsLoading, setMsgsLoading] = useState(false);
+  const [newMsg, setNewMsg]         = useState("");
+  const [sending, setSending]       = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const msgEndRef = useRef<HTMLDivElement>(null);
+
+  /* ── fetch overview ── */
+  const fetchOverview = useCallback(async () => {
     try {
       const [uR, bR, pR, cR] = await Promise.all([
         fetch("/api/gemini/usage"),
@@ -108,354 +77,583 @@ export default function DashboardPage() {
         fetch("/api/payments/my-requests"),
         fetch("/api/gemini/conversations"),
       ]);
-      if (uR.ok) setUsage(await uR.json());
-      if (bR.ok) setBookings(await bR.json());
-      if (pR.ok) setPayments(await pR.json());
-      if (cR.ok) setConvs(await cR.json());
+      if (uR.ok) setUsage(await uR.json() as UsageInfo);
+      if (bR.ok) setBookings(await bR.json() as Booking[]);
+      if (pR.ok) setPayments(await pR.json() as PaymentReq[]);
+      if (cR.ok) setConvs(await cR.json() as Conversation[]);
     } catch {}
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  /* ── fetch archive ── */
+  const fetchArchive = useCallback(async () => {
+    if (archive) return;
+    setArchiveLoading(true);
+    try {
+      const r = await fetch("/api/messages/archive");
+      if (r.ok) setArchive(await r.json() as ArchiveData);
+    } catch {}
+    finally { setArchiveLoading(false); }
+  }, [archive]);
 
+  /* ── fetch messages ── */
+  const fetchMessages = useCallback(async () => {
+    setMsgsLoading(true);
+    try {
+      const r = await fetch("/api/messages");
+      if (r.ok) {
+        const data = await r.json() as AdminMsg[];
+        setMsgs(data);
+        setUnreadCount(data.filter(m => m.direction === "admin_to_user" && !m.isRead).length);
+      }
+    } catch {}
+    finally { setMsgsLoading(false); }
+  }, []);
+
+  /* ── mark messages read ── */
+  const markRead = useCallback(async () => {
+    if (unreadCount === 0) return;
+    try { await fetch("/api/messages/mark-read", { method: "POST" }); setUnreadCount(0); } catch {}
+  }, [unreadCount]);
+
+  /* ── send message ── */
+  const sendMessage = async () => {
+    if (!newMsg.trim() || sending) return;
+    setSending(true);
+    try {
+      const r = await fetch("/api/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newMsg.trim() }),
+      });
+      if (r.ok) {
+        const m = await r.json() as AdminMsg;
+        setMsgs(prev => [...prev, m]);
+        setNewMsg("");
+        setTimeout(() => msgEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      }
+    } catch {}
+    finally { setSending(false); }
+  };
+
+  /* ── initial load ── */
+  useEffect(() => { fetchOverview(); }, [fetchOverview]);
+  useEffect(() => { const id = setInterval(fetchOverview, 30000); return () => clearInterval(id); }, [fetchOverview]);
+
+  /* ── tab-specific loads ── */
   useEffect(() => {
-    const id = setInterval(fetchAll, 30000);
-    return () => clearInterval(id);
-  }, [fetchAll]);
+    if (activeTab === "works") fetchArchive();
+    if (activeTab === "messages") { fetchMessages(); markRead(); }
+  }, [activeTab, fetchArchive, fetchMessages, markRead]);
 
-  if (!isLoaded || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  /* ── scroll to last msg ── */
+  useEffect(() => {
+    if (activeTab === "messages") setTimeout(() => msgEndRef.current?.scrollIntoView({ behavior: "smooth" }), 200);
+  }, [msgs, activeTab]);
 
+  /* ── auth guard ── */
   useEffect(() => {
     if (isLoaded && !loading && !user) setLocation("/sign-in");
   }, [isLoaded, loading, user, setLocation]);
 
+  if (!isLoaded || loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff" }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "3px solid #000", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
   if (!user) return null;
 
   const displayName = user.firstName
     ? `${user.firstName} ${user.lastName ?? ""}`.trim()
     : user.emailAddresses?.[0]?.emailAddress ?? "مستخدم";
 
-  const pendingBookings  = bookings.filter(b => b.status === "pending" || b.status === "reviewing" || b.status === "in-progress");
-  const pendingPayments  = payments.filter(p => p.status === "pending");
-  const isPaid           = usage?.plan && usage.plan !== "free";
+  const isPaid = usage?.plan && usage.plan !== "free";
+  const pendingBookings = bookings.filter(b => ["pending","reviewing","in-progress"].includes(b.status));
+  const filteredWorks = archive?.works.filter(w => workFilter === "الكل" || w.type === workFilter) ?? [];
 
+  /* ════════════════════════════ RENDER ════════════════════════════ */
   return (
-    <div dir={isRTL ? "rtl" : "ltr"} className="min-h-screen bg-background text-foreground">
+    <div dir={isRTL ? "rtl" : "ltr"} style={{ minHeight: "100vh", background: "#fff", color: "#000", fontFamily: "'Cairo','Tajawal',sans-serif" }}>
 
-      {/* Cover — user photo as full-width banner */}
-      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary/20 via-violet-100 to-indigo-50">
-        {user.imageUrl && (
-          <img src={user.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-top opacity-20 blur-sm scale-110" aria-hidden />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-background/80" />
-        {/* Header nav on top of cover */}
-        <div className="relative z-10 flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="w-5 h-5 text-primary" />
-            <div>
-              <h1 className="text-sm font-bold text-primary">لوحتي</h1>
-              <p className="text-[10px] text-foreground/60">مركز إدارة حسابك</p>
+      {/* ── Sticky header ── */}
+      <div style={{ background: "#000", position: "sticky", top: 0, zIndex: 40 }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 16px" }}>
+          {/* top bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0 0" }}>
+            <button onClick={() => setLocation("/chat")}
+              style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", width: 34, height: 34, borderRadius: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <ArrowLeft style={{ width: 15, height: 15 }} />
+            </button>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#1a1a2e", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#f59e0b", fontSize: "1rem" }}>
+              {user.imageUrl
+                ? <img src={user.imageUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : displayName[0]?.toUpperCase() ?? "؟"}
             </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: "#fff", fontWeight: 900, fontSize: "0.95rem", margin: 0 }}>{displayName}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                {usage && (
+                  <span style={{ background: `${PLAN_COLOR[usage.plan]}20`, color: PLAN_COLOR[usage.plan], border: `1px solid ${PLAN_COLOR[usage.plan]}40`, borderRadius: 20, padding: "1px 9px", fontSize: "0.65rem", fontWeight: 800 }}>
+                    {PLAN_AR[usage.plan] ?? usage.plan}
+                  </span>
+                )}
+                {unreadCount > 0 && (
+                  <span style={{ background: "#ef4444", color: "#fff", borderRadius: 20, padding: "1px 7px", fontSize: "0.62rem", fontWeight: 900, animation: "ks-blink 1.5s ease-in-out infinite" }}>
+                    {unreadCount} رسالة
+                  </span>
+                )}
+              </div>
+            </div>
+            <button onClick={fetchOverview}
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+              <RefreshCw style={{ width: 12, height: 12 }} />تحديث
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={fetchAll} className="h-8 text-xs">
-              <RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/chat")} className="h-8 text-xs">
-              <ArrowLeft className="w-3.5 h-3.5 ml-1" />الدردشة
-            </Button>
+          {/* tabs */}
+          <div style={{ display: "flex", gap: 2, marginTop: 10 }}>
+            {([
+              { id: "overview",      label: "لوحتي",       icon: LayoutDashboard },
+              { id: "works",         label: "أعمالي",      icon: Briefcase },
+              { id: "messages",      label: "الرسائل",     icon: Inbox, badge: unreadCount },
+              { id: "subscription",  label: "اشتراكي",     icon: CreditCard },
+            ] as const).map(t => {
+              const Icon = t.icon;
+              const active = activeTab === t.id;
+              return (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                  style={{ flex: 1, background: active ? "#fff" : "transparent", color: active ? "#000" : "rgba(255,255,255,0.65)", border: "none", borderRadius: "9px 9px 0 0", padding: "9px 4px", fontSize: "0.72rem", fontWeight: active ? 900 : 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, whiteSpace: "nowrap", position: "relative" }}>
+                  <Icon style={{ width: 13, height: 13 }} />{t.label}
+                  {"badge" in t && t.badge > 0 && (
+                    <span style={{ position: "absolute", top: 4, right: 6, background: "#ef4444", color: "#fff", borderRadius: "50%", width: 14, height: 14, fontSize: "0.55rem", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{t.badge}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 -mt-12 relative z-10">
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 16px 80px" }}>
 
-        {/* Profile Card — avatar overlaps the cover */}
-        <div className="bg-card border border-border/50 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-20 h-20 rounded-full border-4 border-background overflow-hidden bg-primary/10 shrink-0 flex items-center justify-center font-bold text-2xl text-primary shadow-md">
-            {user.imageUrl
-              ? <img src={user.imageUrl} alt={displayName} className="w-full h-full object-cover" />
-              : displayName[0]?.toUpperCase() ?? "؟"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold">{displayName}</h2>
-            <p className="text-xs text-muted-foreground truncate">{user.emailAddresses?.[0]?.emailAddress}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {usage && <PlanBadge plan={usage.plan} />}
-              {usage?.vipLevel && usage.vipLevel !== "none" && (
-                <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", usage.vipLevel === "gold" ? "bg-yellow-500/20 text-yellow-400" : "bg-slate-500/20 text-slate-300")}>
-                  {usage.vipLevel === "gold" ? "🏆 VIP ذهبي" : "🥈 VIP فضي"}
-                </span>
+        {/* ══════════ TAB: OVERVIEW ══════════ */}
+        {activeTab === "overview" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              {[
+                { label: "رسائلك", val: usage?.totalMessages ?? 0, color: "#7c3aed" },
+                { label: "حجوزات نشطة", val: pendingBookings.length, color: "#f59e0b" },
+                { label: "طلبات دفع", val: payments.filter(p=>p.status==="pending").length, color: "#059669" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#f8fafc", border: `2px solid ${s.color}20`, borderRadius: 14, padding: "14px 10px", textAlign: "center" }}>
+                  <p style={{ fontWeight: 900, fontSize: "1.6rem", color: s.color, margin: "0 0 3px", lineHeight: 1 }}>{s.val}</p>
+                  <p style={{ fontSize: "0.66rem", color: "#6b7280", margin: 0, fontWeight: 600 }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* bookings */}
+            <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                  <CalendarCheck style={{ width: 15, height: 15, color: "#f59e0b" }} />حجوزاتي
+                </p>
+                <Link href="/booking">
+                  <button style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "5px 12px", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                    <CalendarCheck style={{ width: 11, height: 11 }} />حجز جديد
+                  </button>
+                </Link>
+              </div>
+              {bookings.length === 0 ? (
+                <EmptyState icon="📅" text="لا توجد حجوزات بعد" cta="احجز خدمة" href="/booking" />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {bookings.slice(0, 5).map(b => {
+                    const st = BOOKING_STATUS[b.status] ?? { label: b.status, color: "#6b7280" };
+                    return (
+                      <div key={b.id} style={{ background: "#f8fafc", borderRadius: 11, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 700, fontSize: "0.82rem", color: "#000", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.serviceTitle}</p>
+                          <p style={{ fontSize: "0.65rem", color: "#9ca3af", margin: 0 }}>{new Date(b.createdAt).toLocaleDateString("ar-EG")}</p>
+                          {b.adminNotes && <p style={{ fontSize: "0.7rem", color: "#7c3aed", margin: "3px 0 0", background: "#f5f3ff", padding: "3px 8px", borderRadius: 6 }}>💬 {b.adminNotes}</p>}
+                        </div>
+                        <span style={{ color: st.color, fontSize: "0.68rem", fontWeight: 800, background: `${st.color}12`, padding: "2px 9px", borderRadius: 20, flexShrink: 0, whiteSpace: "nowrap" }}>{st.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
-          </div>
-          {!isPaid && (
-            <Link href="/subscribe">
-              <Button size="sm" className="text-xs shrink-0 gap-1 shadow-lg shadow-primary/20">
-                <Crown className="w-3.5 h-3.5" />ترقية الخطة
-              </Button>
-            </Link>
-          )}
-        </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "إجمالي رسائلك", value: usage?.totalMessages ?? 0, icon: MessageSquare, color: "text-primary" },
-            { label: "حجوزاتك النشطة", value: pendingBookings.length, icon: CalendarCheck, color: "text-amber-400" },
-            { label: "طلبات الدفع",  value: pendingPayments.length, icon: Receipt, color: "text-emerald-400" },
-          ].map(s => (
-            <div key={s.label} className="bg-card border border-border/50 rounded-xl p-3 text-center">
-              <s.icon className={cn("w-5 h-5 mx-auto mb-1", s.color)} />
-              <p className="text-xl font-bold">{s.value}</p>
-              <p className="text-[10px] text-muted-foreground">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Subscription Card */}
-        {usage && (() => {
-          const daysLeft = usage.validUntil
-            ? Math.ceil((new Date(usage.validUntil).getTime() - Date.now()) / 86400000)
-            : null;
-          const isExpiringSoon = daysLeft !== null && daysLeft <= 7;
-          return (
-            <div className={cn("border rounded-2xl p-5 space-y-4", isPaid ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card")}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-primary" />
-                  <h3 className="font-bold text-sm">اشتراكك الحالي</h3>
-                </div>
-                <PlanBadge plan={usage.plan} />
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground text-xs">إجمالي رسائلك</p>
-                  <p className="font-bold text-lg">{usage.totalMessages}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">الوصول اللامحدود</p>
-                  <p className={cn("font-bold text-sm", usage.unlimited ? "text-emerald-400" : "text-muted-foreground")}>
-                    {usage.unlimited ? "✅ نعم" : "❌ لا"}
+            {/* payments */}
+            {payments.length > 0 && (
+              <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                    <Receipt style={{ width: 15, height: 15, color: "#059669" }} />طلبات الدفع
                   </p>
+                  <Link href="/subscribe">
+                    <button style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "5px 12px", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer" }}>
+                      طلب جديد
+                    </button>
+                  </Link>
                 </div>
-                {usage.validUntil && (
-                  <div className="col-span-2">
-                    <p className="text-muted-foreground text-xs mb-1">تاريخ انتهاء الاشتراك</p>
-                    <div className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 border text-sm font-medium",
-                      isExpiringSoon && daysLeft! <= 3
-                        ? "bg-red-500/10 border-red-500/30 text-red-400"
-                        : isExpiringSoon
-                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
-                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-                    )}>
-                      <Clock className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        {new Date(usage.validUntil).toLocaleDateString("ar-YE", { year: "numeric", month: "long", day: "numeric" })}
-                      </span>
-                      {daysLeft !== null && (
-                        <span className="mr-auto text-xs font-normal">
-                          {daysLeft <= 0
-                            ? "منتهي ⚠️"
-                            : daysLeft === 1
-                            ? "يوم واحد متبقٍ ⚠️"
-                            : `${daysLeft} يوم متبقٍ`}
-                        </span>
-                      )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {payments.slice(0, 4).map(p => {
+                    const st = PAYMENT_STATUS[p.status] ?? { label: p.status, color: "#6b7280", bg: "#f8fafc" };
+                    return (
+                      <div key={p.id} style={{ background: st.bg, border: `1.5px solid ${st.color}30`, borderRadius: 10, padding: "9px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: "0.78rem", color: "#000", margin: "0 0 1px" }}>{PLAN_AR[p.planRequested] ?? p.planRequested}</p>
+                          <p style={{ fontSize: "0.62rem", color: "#9ca3af", margin: 0 }}>{new Date(p.createdAt).toLocaleDateString("ar-EG")}</p>
+                        </div>
+                        <span style={{ color: st.color, fontSize: "0.7rem", fontWeight: 800 }}>{st.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* recent convs */}
+            <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                  <MessageSquare style={{ width: 15, height: 15, color: "#7c3aed" }} />المحادثات الأخيرة
+                </p>
+                <Link href="/chat">
+                  <button style={{ background: "#000", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer" }}>
+                    محادثة جديدة
+                  </button>
+                </Link>
+              </div>
+              {convs.length === 0 ? (
+                <EmptyState icon="💬" text="لا توجد محادثات بعد" cta="ابدأ محادثة" href="/chat" />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {convs.slice(0, 6).map(c => (
+                    <Link key={c.id} href={`/chat?id=${c.id}`}>
+                      <div style={{ background: "#f8fafc", borderRadius: 9, padding: "9px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                          <MessageSquare style={{ width: 13, height: 13, color: "#9ca3af", flexShrink: 0 }} />
+                          <span style={{ fontSize: "0.78rem", color: "#000", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title || "محادثة جديدة"}</span>
+                        </div>
+                        <span style={{ fontSize: "0.6rem", color: "#9ca3af", flexShrink: 0, marginRight: 8 }}>{new Date(c.createdAt).toLocaleDateString("ar-EG")}</span>
+                      </div>
+                    </Link>
+                  ))}
+                  {convs.length > 6 && (
+                    <Link href="/chat"><p style={{ textAlign: "center", fontSize: "0.75rem", color: "#7c3aed", margin: "4px 0 0", cursor: "pointer", fontWeight: 700 }}>عرض كل المحادثات ({convs.length})</p></Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* quick actions */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { href:"/chat",      icon: MessageSquare, label:"دردشة مع يمن شات",  color:"#7c3aed" },
+                { href:"/booking",   icon: CalendarCheck, label:"احجز خدمة",         color:"#f59e0b" },
+                { href:"/subscribe", icon: Crown,         label:"ترقية الباقة",       color:"#f59e0b" },
+                { href:"/services",  icon: Briefcase,     label:"استعراض الخدمات",   color:"#059669" },
+              ].map(a => {
+                const Icon = a.icon;
+                return (
+                  <Link key={a.href} href={a.href}>
+                    <div style={{ background: "#f8fafc", border: `1.5px solid ${a.color}25`, borderRadius: 12, padding: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: `${a.color}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Icon style={{ width: 14, height: 14, color: a.color }} />
+                      </div>
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#000" }}>{a.label}</span>
                     </div>
-                    {isExpiringSoon && (
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════ TAB: WORKS ARCHIVE ══════════ */}
+        {activeTab === "works" && (
+          <div>
+            {archiveLoading ? (
+              <div style={{ textAlign: "center", padding: 60 }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", border: "3px solid #000", borderTopColor: "transparent", animation: "spin 0.7s linear infinite", margin: "0 auto 12px" }} />
+                <p style={{ color: "#6b7280", fontSize: "0.85rem" }}>جاري تحليل أعمالك...</p>
+              </div>
+            ) : !archive ? (
+              <EmptyState icon="📂" text="لا توجد أعمال بعد" cta="ابدأ محادثة" href="/chat" />
+            ) : (
+              <>
+                {/* stats row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 18 }}>
+                  {[
+                    { label:"مواقع",   val: archive.stats.websites ?? 0,  color:"#0891b2", emoji:"🌐" },
+                    { label:"شعارات",  val: archive.stats.logos ?? 0,     color:"#ec4899", emoji:"🎨" },
+                    { label:"وثائق",   val: archive.stats.documents ?? 0, color:"#f59e0b", emoji:"📄" },
+                    { label:"صور",     val: archive.stats.images ?? 0,    color:"#7c3aed", emoji:"🖼️" },
+                    { label:"أكواد",   val: archive.stats.code ?? 0,      color:"#059669", emoji:"💻" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ background: "#f8fafc", border: `1.5px solid ${s.color}20`, borderRadius: 12, padding: "10px 6px", textAlign: "center" }}>
+                      <p style={{ fontSize: "1rem", margin: "0 0 2px" }}>{s.emoji}</p>
+                      <p style={{ fontWeight: 900, fontSize: "1.1rem", color: s.color, margin: "0 0 1px", lineHeight: 1 }}>{s.val}</p>
+                      <p style={{ fontSize: "0.58rem", color: "#9ca3af", margin: 0, fontWeight: 600 }}>{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* filter */}
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 14 }}>
+                  {WORK_TYPE_FILTER.map(f => (
+                    <button key={f} onClick={() => setWorkFilter(f)}
+                      style={{ background: workFilter===f?"#000":"#f1f5f9", color: workFilter===f?"#fff":"#374151", border: workFilter===f?"none":"1.5px solid #e2e8f0", borderRadius: 20, padding: "5px 13px", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {WORK_FILTER_AR[f] ?? f}
+                    </button>
+                  ))}
+                </div>
+
+                {filteredWorks.length === 0 ? (
+                  <EmptyState icon="🔍" text="لا توجد أعمال بهذا التصنيف" cta="ابدأ محادثة" href="/chat" />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {filteredWorks.map(w => (
+                      <Link key={w.id} href={`/chat?id=${w.convId}`}>
+                        <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 13, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor="#000")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor="#e2e8f0")}>
+                          <span style={{ fontSize: "1.6rem", flexShrink: 0 }}>{w.emoji}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: 800, fontSize: "0.82rem", color: "#000", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title}</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ background: "#f1f5f9", color: "#6b7280", fontSize: "0.62rem", fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{w.label}</span>
+                              <span style={{ color: "#9ca3af", fontSize: "0.62rem" }}>{new Date(w.date).toLocaleDateString("ar-EG")}</span>
+                            </div>
+                          </div>
+                          <ChevronRight style={{ width: 14, height: 14, color: "#d1d5db", flexShrink: 0 }} />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                <p style={{ textAlign: "center", color: "#9ca3af", fontSize: "0.68rem", marginTop: 18 }}>
+                  إجمالي {archive.total} عمل من {archive.totalConvs} محادثة
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══════════ TAB: MESSAGES ══════════ */}
+        {activeTab === "messages" && (
+          <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", minHeight: 400 }}>
+            {/* header */}
+            <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "14px 14px 0 0", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", flexShrink: 0 }}>👑</div>
+              <div>
+                <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: 0 }}>خالد سلمان — الإدارة</p>
+                <p style={{ fontSize: "0.65rem", color: "#9ca3af", margin: 0 }}>تواصل مباشر مع الإدارة</p>
+              </div>
+            </div>
+
+            {/* messages thread */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10, background: "#fff", border: "1.5px solid #e2e8f0", borderTop: "none" }}>
+              {msgsLoading ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#9ca3af" }}>جاري التحميل...</div>
+              ) : msgs.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                  <p style={{ fontSize: "2.5rem", margin: "0 0 10px" }}>💬</p>
+                  <p style={{ fontWeight: 800, color: "#000", fontSize: "0.9rem", margin: "0 0 6px" }}>لا توجد رسائل بعد</p>
+                  <p style={{ color: "#9ca3af", fontSize: "0.78rem", margin: 0 }}>اكتب رسالتك أدناه وسيرد عليك خالد سلمان</p>
+                </div>
+              ) : (
+                <>
+                  {msgs.map(m => {
+                    const isUser = m.direction === "user_to_admin";
+                    return (
+                      <div key={m.id} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+                        <div style={{
+                          maxWidth: "78%",
+                          background: isUser ? "#000" : "#f1f5f9",
+                          color: isUser ? "#fff" : "#000",
+                          borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                          padding: "10px 14px",
+                        }}>
+                          {!isUser && (
+                            <p style={{ fontSize: "0.6rem", color: "#7c3aed", fontWeight: 800, margin: "0 0 4px" }}>👑 خالد سلمان</p>
+                          )}
+                          <p style={{ fontSize: "0.82rem", lineHeight: 1.65, margin: 0, whiteSpace: "pre-wrap" }}>{m.content}</p>
+                          <p style={{ fontSize: "0.58rem", opacity: 0.6, margin: "4px 0 0", textAlign: isUser ? "left" : "right" }}>
+                            {new Date(m.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={msgEndRef} />
+                </>
+              )}
+            </div>
+
+            {/* input */}
+            <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 14px 14px", padding: "10px 12px", background: "#fff", display: "flex", gap: 8 }}>
+              <textarea
+                value={newMsg}
+                onChange={e => setNewMsg(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder="اكتب رسالتك للإدارة... (Enter للإرسال)"
+                rows={2}
+                style={{ flex: 1, background: "#f8fafc", border: "1.5px solid #e2e8f0", color: "#000", padding: "9px 12px", borderRadius: 10, fontSize: "0.82rem", fontFamily: "inherit", resize: "none", outline: "none", lineHeight: 1.55 }}
+              />
+              <button onClick={sendMessage} disabled={!newMsg.trim() || sending}
+                style={{ background: newMsg.trim()&&!sending?"#000":"#d1d5db", color: "#fff", border: "none", borderRadius: 10, width: 42, cursor: newMsg.trim()&&!sending?"pointer":"not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {sending
+                  ? <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
+                  : <Send style={{ width: 15, height: 15 }} />}
+              </button>
+            </div>
+            <p style={{ fontSize: "0.62rem", color: "#9ca3af", textAlign: "center", marginTop: 8 }}>
+              يمكنك أيضاً التواصل عبر واتساب: +967 783 701 365
+            </p>
+          </div>
+        )}
+
+        {/* ══════════ TAB: SUBSCRIPTION ══════════ */}
+        {activeTab === "subscription" && usage && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* current plan card */}
+            <div style={{ background: isPaid?"#fffbeb":"#f8fafc", border: `2px solid ${isPaid?"#f59e0b":"#e2e8f0"}`, borderRadius: 18, padding: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                {(() => { const Icon = PLAN_ICON[usage.plan] ?? Star; return <div style={{ width: 46, height: 46, borderRadius: "50%", background: `${PLAN_COLOR[usage.plan]}15`, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon style={{ width: 22, height: 22, color: PLAN_COLOR[usage.plan] }} /></div>; })()}
+                <div>
+                  <p style={{ fontWeight: 900, fontSize: "1.05rem", color: "#000", margin: "0 0 2px" }}>خطة {PLAN_AR[usage.plan] ?? usage.plan}</p>
+                  <span style={{ background: `${PLAN_COLOR[usage.plan]}15`, color: PLAN_COLOR[usage.plan], fontSize: "0.68rem", fontWeight: 800, padding: "2px 10px", borderRadius: 20 }}>
+                    {usage.unlimited ? "✅ وصول لامحدود" : `${usage.designTasksToday}/${usage.designTaskLimit} طلب اليوم`}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ background: "rgba(0,0,0,0.04)", borderRadius: 10, padding: "10px 12px" }}>
+                  <p style={{ color: "#9ca3af", fontSize: "0.62rem", margin: "0 0 2px", fontWeight: 600 }}>إجمالي رسائلك</p>
+                  <p style={{ fontWeight: 900, fontSize: "1.2rem", color: "#000", margin: 0 }}>{usage.totalMessages}</p>
+                </div>
+                <div style={{ background: "rgba(0,0,0,0.04)", borderRadius: 10, padding: "10px 12px" }}>
+                  <p style={{ color: "#9ca3af", fontSize: "0.62rem", margin: "0 0 2px", fontWeight: 600 }}>حجز اليوم</p>
+                  <p style={{ fontWeight: 900, fontSize: "1.2rem", color: "#000", margin: 0 }}>{usage.designTasksToday}</p>
+                </div>
+              </div>
+              {usage.validUntil && (() => {
+                const daysLeft = Math.ceil((new Date(usage.validUntil).getTime() - Date.now()) / 86400000);
+                const isWarn = daysLeft <= 7;
+                return (
+                  <div style={{ marginTop: 12, background: isWarn?"#fef2f2":"#f0fdf4", border: `1.5px solid ${isWarn?"#fca5a5":"#bbf7d0"}`, borderRadius: 10, padding: "9px 13px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <Clock style={{ width: 14, height: 14, color: isWarn?"#ef4444":"#22c55e", flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 700, fontSize: "0.78rem", color: "#000", margin: 0 }}>
+                        ينتهي: {new Date(usage.validUntil).toLocaleDateString("ar-YE", { year:"numeric", month:"long", day:"numeric" })}
+                      </p>
+                      <p style={{ color: isWarn?"#ef4444":"#22c55e", fontSize: "0.65rem", margin: "1px 0 0" }}>
+                        {daysLeft <= 0 ? "منتهي ⚠️" : daysLeft === 1 ? "يوم واحد متبقٍ" : `${daysLeft} يوم متبقٍ`}
+                      </p>
+                    </div>
+                    {isWarn && (
                       <Link href="/subscribe">
-                        <Button size="sm" className="w-full mt-2 text-xs gap-1 shadow-lg shadow-primary/20">
-                          <Zap className="w-3.5 h-3.5" />تجديد الاشتراك الآن
-                        </Button>
+                        <button style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 7, padding: "5px 11px", fontWeight: 700, fontSize: "0.7rem", cursor: "pointer", whiteSpace: "nowrap" }}>جدد الآن</button>
                       </Link>
                     )}
                   </div>
-                )}
-              </div>
-              {isPaid && (
-                <Link href="/tools">
-                  <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-primary/30 hover:border-primary/60 hover:bg-primary/5">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />فتح أدوات الإنتاج المتقدمة
-                    <ChevronRight className="w-3.5 h-3.5 mr-auto" />
-                  </Button>
-                </Link>
-              )}
-              {!isPaid && (
-                <div className="pt-1 border-t border-border/30">
-                  <Link href="/pricing">
-                    <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-primary/30 hover:border-primary/60">
-                      <Crown className="w-3.5 h-3.5 text-primary" />عرض الباقات المتاحة
-                      <ChevronRight className="w-3.5 h-3.5 mr-auto" />
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Payment Requests */}
-        {payments.length > 0 && (
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Receipt className="w-4 h-4 text-amber-400" />
-              <h3 className="font-bold text-sm">طلبات الدفع</h3>
-              <span className="text-xs text-muted-foreground">({payments.length})</span>
-            </div>
-            <div className="space-y-3">
-              {payments.map(p => {
-                const st = PAYMENT_STATUS[p.status] ?? { label: p.status, color: "text-muted-foreground bg-muted/30" };
-                return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-background border border-border/40">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <PlanBadge plan={p.planRequested} />
-                        {p.transferService && <span className="text-xs text-muted-foreground">{p.transferService}</span>}
-                        {p.amount && <span className="text-xs text-emerald-400 font-medium">{p.amount}</span>}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(p.createdAt).toLocaleDateString("ar")}</p>
-                    </div>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium shrink-0", st.color)}>{st.label}</span>
-                  </div>
                 );
-              })}
+              })()}
             </div>
-            <div className="mt-3 pt-3 border-t border-border/30">
-              <Link href="/subscribe">
-                <Button size="sm" variant="ghost" className="w-full text-xs text-primary hover:text-primary">
-                  إضافة طلب دفع جديد <ChevronRight className="w-3.5 h-3.5 mr-1" />
-                </Button>
-              </Link>
+
+            {/* available plans */}
+            <div>
+              <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", marginBottom: 12 }}>🆙 الخطط المتاحة للترقية</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { plan:"weekly",     price:"$2.99",    icon:Zap,       features:["رسائل غير محدودة","دعم أولوي","كل الأدوات"] },
+                  { plan:"monthly",    price:"$9.99",    icon:Sparkles,  features:["كل مزايا الأسبوعي","تخزين أعمال","تقارير شهرية"] },
+                  { plan:"annual",     price:"$79.99",   icon:Crown,     features:["كل المزايا","أرخص 30%","أولوية قصوى"] },
+                  { plan:"enterprise", price:"بالتفاوض", icon:Building2, features:["حلول مؤسسية","API مخصص","دعم 24/7"] },
+                ].map(p => {
+                  const Icon = p.icon;
+                  const isCurrent = usage.plan === p.plan;
+                  return (
+                    <div key={p.plan} style={{ background: isCurrent?"#f0fdf4":"#f8fafc", border: `2px solid ${isCurrent?"#22c55e":PLAN_COLOR[p.plan]+"30"}`, borderRadius: 14, padding: "14px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <Icon style={{ width: 18, height: 18, color: PLAN_COLOR[p.plan] }} />
+                        <p style={{ fontWeight: 900, fontSize: "0.88rem", color: "#000", margin: 0 }}>{PLAN_AR[p.plan]}</p>
+                        {isCurrent && <span style={{ background: "#22c55e", color: "#fff", fontSize: "0.55rem", fontWeight: 900, padding: "1px 6px", borderRadius: 20, marginRight: "auto" }}>حالي</span>}
+                      </div>
+                      <p style={{ fontWeight: 900, fontSize: "1.1rem", color: PLAN_COLOR[p.plan], margin: "0 0 8px" }}>{p.price}</p>
+                      <ul style={{ margin: 0, padding: "0 16px 0 0", listStyle: "none", display: "flex", flexDirection: "column", gap: 3 }}>
+                        {p.features.map((f, i) => (
+                          <li key={i} style={{ fontSize: "0.65rem", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
+                            <CheckCircle2 style={{ width: 10, height: 10, color: "#22c55e", flexShrink: 0 }} />{f}
+                          </li>
+                        ))}
+                      </ul>
+                      {!isCurrent && (
+                        <Link href="/subscribe">
+                          <button style={{ width: "100%", marginTop: 10, background: "#000", color: "#fff", border: "none", borderRadius: 9, padding: "8px", fontWeight: 800, fontSize: "0.75rem", cursor: "pointer" }}>
+                            اشترك الآن
+                          </button>
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* payment history */}
+            {payments.length > 0 && (
+              <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "16px" }}>
+                <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 7 }}>
+                  <Receipt style={{ width: 15, height: 15, color: "#6b7280" }} />سجل المدفوعات
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {payments.map(p => {
+                    const st = PAYMENT_STATUS[p.status] ?? { label: p.status, color: "#6b7280", bg: "#f8fafc" };
+                    return (
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: "0.78rem", color: "#000", margin: 0 }}>{PLAN_AR[p.planRequested] ?? p.planRequested}</p>
+                          <p style={{ fontSize: "0.6rem", color: "#9ca3af", margin: "1px 0 0" }}>{new Date(p.createdAt).toLocaleDateString("ar-EG")}</p>
+                        </div>
+                        <span style={{ color: st.color, fontSize: "0.7rem", fontWeight: 800 }}>{st.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Bookings */}
-        <div className="bg-card border border-border/50 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-primary" />
-              <h3 className="font-bold text-sm">حجوزاتي وطلباتي</h3>
-            </div>
-            <Link href="/booking">
-              <Button size="sm" variant="outline" className="text-xs h-7 gap-1">
-                <CalendarCheck className="w-3 h-3" />حجز جديد
-              </Button>
-            </Link>
-          </div>
-          {bookings.length === 0 ? (
-            <div className="text-center py-8 space-y-3">
-              <CalendarCheck className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-              <p className="text-sm text-muted-foreground">لا توجد حجوزات بعد</p>
-              <Link href="/booking">
-                <Button size="sm" className="text-xs gap-1">احجز خدمة الآن</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {bookings.map(b => {
-                const st = BOOKING_STATUS[b.status] ?? { label: b.status, color: "text-muted-foreground bg-muted/30", icon: Circle };
-                const StatusIcon = st.icon;
-                return (
-                  <div key={b.id} className="p-3 rounded-xl bg-background border border-border/40">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{b.serviceTitle}</p>
-                        <p className="text-xs text-muted-foreground">{b.serviceType}</p>
-                        {b.adminNotes && (
-                          <p className="text-xs text-primary/80 mt-1 bg-primary/5 rounded px-2 py-1">
-                            💬 {b.adminNotes}
-                          </p>
-                        )}
-                        <p className="text-[10px] text-muted-foreground mt-1">{new Date(b.createdAt).toLocaleDateString("ar")}</p>
-                      </div>
-                      <span className={cn("inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0", st.color)}>
-                        <StatusIcon className="w-3 h-3" />
-                        {st.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Conversations */}
-        <div className="bg-card border border-border/50 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-primary" />
-              <h3 className="font-bold text-sm">المحادثات الأخيرة</h3>
-            </div>
-            <Link href="/chat">
-              <Button size="sm" variant="outline" className="text-xs h-7 gap-1">
-                <ExternalLink className="w-3 h-3" />فتح الدردشة
-              </Button>
-            </Link>
-          </div>
-          {convs.length === 0 ? (
-            <div className="text-center py-8 space-y-3">
-              <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-              <p className="text-sm text-muted-foreground">لا توجد محادثات بعد</p>
-              <Link href="/chat">
-                <Button size="sm" className="text-xs">ابدأ دردشة جديدة</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {convs.slice(0, 8).map(c => (
-                <Link key={c.id} href={`/chat?id=${c.id}`}>
-                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer group">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">{c.title || "محادثة جديدة"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString("ar")}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-              {convs.length > 8 && (
-                <Link href="/chat">
-                  <p className="text-xs text-primary text-center pt-1 hover:underline">عرض كل المحادثات ({convs.length})</p>
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { href: "/chat",      label: "دردشة مع يمن شات", icon: MessageSquare, color: "border-primary/30 hover:border-primary/60 hover:bg-primary/5" },
-            { href: "/booking",   label: "احجز خدمة",         icon: CalendarCheck, color: "border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/5" },
-            { href: "/subscribe", label: "ترقية الباقة",       icon: Crown,         color: "border-yellow-500/30 hover:border-yellow-500/60 hover:bg-yellow-500/5" },
-            { href: "/services",  label: "استعراض الخدمات",    icon: ExternalLink,  color: "border-border/50 hover:border-border/80 hover:bg-muted/20" },
-          ].map(a => (
-            <Link key={a.href} href={a.href}>
-              <div className={cn("flex items-center gap-2 p-3 rounded-xl border transition-colors cursor-pointer", a.color)}>
-                <a.icon className="w-4 h-4 shrink-0" />
-                <span className="text-sm font-medium">{a.label}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <p className="text-center text-[10px] text-muted-foreground pb-4">
-          © {new Date().getFullYear()} يمن شات — خالد سلمان
-        </p>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes ks-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      `}</style>
+    </div>
+  );
+}
+
+/* ─── reusable empty state ─── */
+function EmptyState({ icon, text, cta, href }: { icon: string; text: string; cta: string; href: string }) {
+  return (
+    <div style={{ textAlign: "center", padding: "32px 20px" }}>
+      <p style={{ fontSize: "2.2rem", margin: "0 0 8px" }}>{icon}</p>
+      <p style={{ fontWeight: 700, color: "#9ca3af", fontSize: "0.85rem", margin: "0 0 12px" }}>{text}</p>
+      <Link href={href}>
+        <button style={{ background: "#000", color: "#fff", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer" }}>{cta}</button>
+      </Link>
     </div>
   );
 }
