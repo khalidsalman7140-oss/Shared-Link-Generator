@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -122,6 +122,31 @@ function PageLoader() {
 }
 
 const ADMIN_EMAIL = "khalidsalman7140@gmail.com";
+
+/* ── Sovereign Admin Route Guard ──────────────────────────
+   Loads NOTHING until Clerk confirms the session.
+   If not signed in → /sign-in
+   If signed in but not admin email → / (silent, no trace)
+   Only admin email → renders children
+────────────────────────────────────────────────────────── */
+function AdminRoute({ component: Component }: { component: ComponentType }) {
+  const { isSignedIn, isLoaded, user } = useUser();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) { setLocation("/sign-in", { replace: true }); return; }
+    const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+    if (email !== ADMIN_EMAIL) { setLocation("/", { replace: true }); }
+  }, [isLoaded, isSignedIn, user, setLocation]);
+
+  if (!isLoaded) return <PageLoader />;
+  if (!isSignedIn) return null;
+  const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+  if (email !== ADMIN_EMAIL) return null;
+
+  return <Component />;
+}
 
 function HomeRedirect() {
   const { isSignedIn, user } = useUser();
@@ -283,8 +308,8 @@ function AppRouter() {
                     <Show when="signed-out"><Redirect to="/sign-in" /></Show>
                   </>
                 )} />
-                <Route path="/admin" component={AdminPage} />
-                <Route path="/owner" component={OwnerPortal} />
+                <Route path="/admin" component={() => <AdminRoute component={AdminPage} />} />
+                <Route path="/owner" component={() => <AdminRoute component={OwnerPortal} />} />
                 <Route path="/social-content" component={SocialContentPage} />
                 <Route path="/code-fixer" component={CodeFixerPage} />
                 <Route path="/hub" component={HubPage} />

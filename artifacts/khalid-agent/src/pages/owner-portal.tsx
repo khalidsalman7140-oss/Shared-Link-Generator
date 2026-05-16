@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import {
   BookOpen, Users, Star, MessageCircle, Send, ExternalLink,
@@ -939,7 +939,17 @@ function ControlRoomTab() {
 
 /* ═══════════════════════════════════════════════════════ */
 export default function OwnerPortal() {
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
+  const [, setLocation] = useLocation();
+
+  /* ── Inner guard — redirect via effect (hooks-safe) ── */
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) { setLocation("/", { replace: true }); return; }
+    const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+    if (email !== ADMIN_EMAIL) { setLocation("/", { replace: true }); }
+  }, [isLoaded, isSignedIn, user, setLocation]);
+
   const isAdmin = user?.emailAddresses?.[0]?.emailAddress === ADMIN_EMAIL;
 
   const [tab, setTab] = useState<TabId>("guide");

@@ -144,9 +144,18 @@ interface AuditLog {
 type Tab = "overview" | "users" | "ratings" | "payments" | "announcements" | "security" | "ads" | "bookings" | "logs" | "media";
 
 export default function AdminPage() {
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<Tab>("overview");
+
+  /* ── Inner guard — redirect via effect (hooks-safe) ── */
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) { setLocation("/", { replace: true }); return; }
+    const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+    if (email !== ADMIN_EMAIL) { setLocation("/", { replace: true }); }
+  }, [isLoaded, isSignedIn, user, setLocation]);
+
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
