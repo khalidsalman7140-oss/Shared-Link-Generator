@@ -9,6 +9,7 @@ import {
   Home, Copy, CheckCheck, RefreshCw, X, ChevronRight, MessageSquare,
   CalendarCheck, Receipt, TrendingUp, Activity, UserCheck, Clock,
   CheckCircle2, XCircle, Filter, Eye, KeyRound, Cpu, Database, Radio,
+  FolderOpen, Folder, File, Download, Bot, ChevronDown, Loader2,
 } from "lucide-react";
 
 /* ─────────────────────── types ─────────────────────── */
@@ -408,8 +409,251 @@ const ACTION_LABELS: Record<string,{label:string;color:string}> = {
   chat:         { label:"💬 محادثة",     color:"#0891b2" },
 };
 
+interface FNode { name:string; path:string; type:"file"|"dir"; size?:number; children?:FNode[]; }
+
+function ArchiveTab() {
+  const [exporting, setExporting] = useState<"code"|"data"|null>(null);
+  const [tree, setTree] = useState<FNode[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["artifacts","lib"]));
+  const [selectedFile, setSelectedFile] = useState<string|null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
+  const [fileLoading, setFileLoading] = useState(false);
+  const [treeLoading, setTreeLoading] = useState(false);
+
+  useEffect(() => {
+    setTreeLoading(true);
+    fetch("/api/admin/code-explorer/tree").then(r=>r.json()).then(d=>{setTree(d as FNode[]);}).catch(()=>{}).finally(()=>setTreeLoading(false));
+  }, []);
+
+  const handleExport = async (type: "code"|"data") => {
+    setExporting(type);
+    try {
+      const url = type === "code" ? "/api/admin/backup/export" : "/api/admin/data-export";
+      const r = await fetch(url);
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = r.headers.get("Content-Disposition")?.split("filename=")[1]?.replace(/"/g,"") ?? `yemenchat-${type}-${new Date().toISOString().slice(0,10)}.zip`;
+      a.click();
+    } catch {}
+    finally { setExporting(null); }
+  };
+
+  const loadFile = async (fp: string) => {
+    setSelectedFile(fp); setFileLoading(true);
+    try {
+      const r = await fetch(`/api/admin/code-explorer/file?path=${encodeURIComponent(fp)}`);
+      const d = await r.json() as { content:string };
+      setFileContent(d.content ?? "");
+    } catch { setFileContent("خطأ في قراءة الملف"); }
+    finally { setFileLoading(false); }
+  };
+
+  const toggle = (p:string) => {
+    const ns = new Set(expanded);
+    ns.has(p) ? ns.delete(p) : ns.add(p);
+    setExpanded(ns);
+  };
+
+  const fmt = (b?:number) => b==null?"":b>1024?`${Math.round(b/1024)}KB`:`${b}B`;
+
+  const renderNode = (node: FNode, depth=0): React.ReactNode => {
+    const isOpen = expanded.has(node.path);
+    const indent = depth * 14;
+    if (node.type === "dir") return (
+      <div key={node.path}>
+        <div onClick={()=>toggle(node.path)} style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 8px", cursor:"pointer", borderRadius:6, background: isOpen?"#f1f5f9":"transparent", paddingLeft: indent+8 }}>
+          {isOpen ? <ChevronDown style={{ width:11, height:11, color:"#6b7280", flexShrink:0 }} /> : <ChevronRight style={{ width:11, height:11, color:"#9ca3af", flexShrink:0 }} />}
+          {isOpen ? <FolderOpen style={{ width:13, height:13, color:"#f59e0b", flexShrink:0 }} /> : <Folder style={{ width:13, height:13, color:"#f59e0b", flexShrink:0 }} />}
+          <span style={{ fontSize:"0.75rem", fontWeight:700, color:"#000" }}>{node.name}</span>
+        </div>
+        {isOpen && node.children?.map(c=>renderNode(c, depth+1))}
+      </div>
+    );
+    const isSelected = selectedFile === node.path;
+    const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
+    const extColor: Record<string,string> = { ts:"#3178c6", tsx:"#61dafb", js:"#f7df1e", json:"#f59e0b", md:"#6b7280", css:"#38bdf8", yaml:"#ff6b6b", toml:"#ff8c42", mjs:"#f7df1e" };
+    return (
+      <div key={node.path} onClick={()=>loadFile(node.path)}
+        style={{ display:"flex", alignItems:"center", gap:6, padding:"3px 8px", paddingLeft: indent+8, cursor:"pointer", borderRadius:6, background: isSelected?"#000":"transparent" }}>
+        <File style={{ width:11, height:11, color: isSelected?"#fff":(extColor[ext]??"#9ca3af"), flexShrink:0 }} />
+        <span style={{ fontSize:"0.72rem", color: isSelected?"#fff":"#374151", flex:1 }}>{node.name}</span>
+        {node.size!=null && <span style={{ fontSize:"0.58rem", color: isSelected?"rgba(255,255,255,0.5)":"#9ca3af" }}>{fmt(node.size)}</span>}
+      </div>
+    );
+  };
+
+  const lineCount = fileContent.split("\n").length;
+  const extOf = (p:string) => p.split(".").pop()?.toLowerCase() ?? "txt";
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      {/* Export Buttons */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <button onClick={()=>handleExport("code")} disabled={!!exporting}
+          style={{ background:"#000", color:"#fff", border:"none", borderRadius:12, padding:"16px 14px", cursor:exporting?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:8, opacity:exporting?"0.7":"1" }}>
+          {exporting==="code" ? <Loader2 style={{ width:22, height:22, animation:"ospin 0.8s linear infinite" }} /> : <Download style={{ width:22, height:22 }} />}
+          <span style={{ fontWeight:900, fontSize:"0.85rem" }}>تصدير أرشيف الكود</span>
+          <span style={{ fontSize:"0.65rem", color:"rgba(255,255,255,0.6)" }}>Export Backup .ZIP</span>
+        </button>
+        <button onClick={()=>handleExport("data")} disabled={!!exporting}
+          style={{ background:"#fff", color:"#000", border:"2px solid #000", borderRadius:12, padding:"16px 14px", cursor:exporting?"not-allowed":"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:8, opacity:exporting?"0.7":"1" }}>
+          {exporting==="data" ? <Loader2 style={{ width:22, height:22, animation:"ospin 0.8s linear infinite" }} /> : <Database style={{ width:22, height:22 }} />}
+          <span style={{ fontWeight:900, fontSize:"0.85rem" }}>تصدير قاعدة البيانات</span>
+          <span style={{ fontSize:"0.65rem", color:"#6b7280" }}>CSV + ZIP — كل البيانات</span>
+        </button>
+      </div>
+
+      {/* File Explorer */}
+      <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:14, overflow:"hidden" }}>
+        <div style={{ background:"#000", padding:"10px 14px", display:"flex", alignItems:"center", gap:8 }}>
+          <FolderOpen style={{ width:14, height:14, color:"#fff" }} />
+          <span style={{ color:"#fff", fontWeight:900, fontSize:"0.82rem" }}>مستكشف ملفات المشروع</span>
+          {treeLoading && <Loader2 style={{ width:12, height:12, color:"rgba(255,255,255,0.5)", animation:"ospin 0.8s linear infinite", marginRight:"auto" }} />}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"260px 1fr", minHeight:380 }}>
+          {/* Tree */}
+          <div style={{ borderLeft:"1px solid #e2e8f0", overflowY:"auto", padding:"8px 4px", maxHeight:480 }}>
+            {tree.map(n=>renderNode(n))}
+            {tree.length === 0 && !treeLoading && <p style={{ textAlign:"center", color:"#9ca3af", fontSize:"0.72rem", padding:20 }}>جارٍ التحميل...</p>}
+          </div>
+          {/* Content */}
+          <div style={{ overflowY:"auto", maxHeight:480 }}>
+            {!selectedFile && (
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", padding:30, color:"#9ca3af" }}>
+                <File style={{ width:32, height:32, marginBottom:8 }} />
+                <p style={{ fontSize:"0.78rem" }}>اختر ملفاً من القائمة لعرض محتواه</p>
+              </div>
+            )}
+            {selectedFile && (
+              <div style={{ height:"100%" }}>
+                <div style={{ padding:"8px 12px", borderBottom:"1px solid #e2e8f0", display:"flex", alignItems:"center", gap:8, background:"#f8fafc" }}>
+                  <File style={{ width:12, height:12, color:"#6b7280" }} />
+                  <span style={{ fontSize:"0.7rem", color:"#374151", fontWeight:700, flex:1, fontFamily:"monospace" }}>{selectedFile}</span>
+                  <span style={{ fontSize:"0.6rem", color:"#9ca3af" }}>{lineCount} سطر</span>
+                </div>
+                {fileLoading ? (
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+                    <Loader2 style={{ width:24, height:24, animation:"ospin 0.8s linear infinite", color:"#000" }} />
+                  </div>
+                ) : (
+                  <pre style={{ margin:0, padding:"12px 14px", fontSize:"0.68rem", lineHeight:1.7, color:"#1e293b", fontFamily:"'Fira Code','Courier New',monospace", overflowX:"auto", whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
+                    <code>{fileContent}</code>
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <p style={{ fontSize:"0.65rem", color:"#9ca3af", textAlign:"center", margin:0 }}>
+        الأرشيف يشمل: artifacts/ + lib/ + scripts/ + ملفات الإعداد الجذرية — بدون node_modules أو .env
+      </p>
+    </div>
+  );
+}
+
+function AnalyzerTab() {
+  const [question, setQuestion] = useState("");
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [pathInput, setPathInput] = useState("");
+  const [analysis, setAnalysis] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const addPath = () => {
+    const p = pathInput.trim();
+    if (p && !selectedPaths.includes(p)) setSelectedPaths(prev=>[...prev,p]);
+    setPathInput("");
+  };
+
+  const run = async () => {
+    if (!question.trim()) return;
+    setAnalyzing(true); setAnalysis("");
+    try {
+      const r = await fetch("/api/admin/code-explorer/analyze", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ question, filePaths: selectedPaths }),
+      });
+      const d = await r.json() as { analysis?:string; error?:string };
+      setAnalysis(d.analysis ?? d.error ?? "لا توجد نتيجة");
+    } catch { setAnalysis("خطأ في الاتصال"); }
+    finally { setAnalyzing(false); }
+  };
+
+  const SUGGESTIONS = [
+    "artifacts/khalid-agent/src/App.tsx",
+    "artifacts/api-server/src/routes/admin/index.ts",
+    "artifacts/khalid-agent/src/pages/chat.tsx",
+    "lib/db/src/schema/conversations.ts",
+    "artifacts/api-server/src/routes/gemini/index.ts",
+  ];
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      <div style={{ background:"#000", borderRadius:12, padding:"14px 16px", display:"flex", gap:12, alignItems:"flex-start" }}>
+        <Bot style={{ width:22, height:22, color:"#fff", flexShrink:0, marginTop:2 }} />
+        <div>
+          <p style={{ color:"#fff", fontWeight:900, fontSize:"0.88rem", margin:"0 0 3px" }}>محرك التحليل الذكي — يمن شات</p>
+          <p style={{ color:"rgba(255,255,255,0.6)", fontSize:"0.7rem", margin:0 }}>مدعوم بـ Gemini 2.5 Flash • يقرأ ملفات المشروع ويحللها لك بدقة</p>
+        </div>
+      </div>
+
+      {/* File paths */}
+      <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:12, padding:14 }}>
+        <p style={{ fontWeight:900, fontSize:"0.8rem", color:"#000", margin:"0 0 10px" }}>📁 الملفات المُحللة (اختياري — أضف مسارات الملفات)</p>
+        <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+          <input value={pathInput} onChange={e=>setPathInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPath()}
+            placeholder="مثال: artifacts/api-server/src/routes/admin/index.ts"
+            style={{ flex:1, padding:"8px 11px", border:"1.5px solid #e2e8f0", borderRadius:9, fontSize:"0.75rem", color:"#000", fontFamily:"monospace", outline:"none", direction:"ltr" }} />
+          <button onClick={addPath} style={{ background:"#000", color:"#fff", border:"none", borderRadius:9, padding:"8px 14px", fontSize:"0.75rem", fontWeight:700, cursor:"pointer" }}>+</button>
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:selectedPaths.length?10:0 }}>
+          {selectedPaths.map(p=>(
+            <span key={p} style={{ background:"#f1f5f9", borderRadius:20, padding:"3px 10px", fontSize:"0.65rem", color:"#374151", fontFamily:"monospace", display:"flex", alignItems:"center", gap:5 }}>
+              {p.split("/").pop()}<button onClick={()=>setSelectedPaths(ps=>ps.filter(x=>x!==p))} style={{ background:"none", border:"none", cursor:"pointer", color:"#ef4444", padding:0, fontWeight:700 }}>×</button>
+            </span>
+          ))}
+        </div>
+        <p style={{ fontSize:"0.65rem", color:"#9ca3af", margin:0 }}>اقتراحات سريعة:</p>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:5 }}>
+          {SUGGESTIONS.map(s=>(
+            <button key={s} onClick={()=>!selectedPaths.includes(s)&&setSelectedPaths(ps=>[...ps,s])}
+              style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:6, padding:"3px 8px", fontSize:"0.62rem", color:"#374151", fontFamily:"monospace", cursor:"pointer" }}>
+              {s.split("/").pop()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Question */}
+      <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:12, padding:14 }}>
+        <p style={{ fontWeight:900, fontSize:"0.8rem", color:"#000", margin:"0 0 10px" }}>💬 سؤالك أو طلبك</p>
+        <textarea value={question} onChange={e=>setQuestion(e.target.value)} rows={4}
+          placeholder="مثال: كيف يعمل نظام المصادقة؟ / ما هي الجداول المستخدمة في قاعدة البيانات؟ / أين يمكنني إضافة ميزة جديدة للدردشة؟"
+          style={{ width:"100%", padding:"10px 12px", border:"1.5px solid #e2e8f0", borderRadius:9, fontSize:"0.78rem", color:"#000", fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+        <button onClick={run} disabled={analyzing||!question.trim()}
+          style={{ marginTop:10, width:"100%", background:analyzing||!question.trim()?"#e2e8f0":"#000", color:analyzing||!question.trim()?"#9ca3af":"#fff", border:"none", borderRadius:9, padding:"12px", fontSize:"0.82rem", fontWeight:900, cursor:analyzing?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          {analyzing ? <><Loader2 style={{ width:16, height:16, animation:"ospin 0.8s linear infinite" }} />جارٍ التحليل...</> : <><Bot style={{ width:16, height:16 }} />تحليل الآن</>}
+        </button>
+      </div>
+
+      {/* Result */}
+      {analysis && (
+        <div style={{ background:"#fff", border:"1.5px solid #000", borderRadius:12, padding:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+            <Bot style={{ width:16, height:16, color:"#000" }} />
+            <p style={{ fontWeight:900, fontSize:"0.85rem", color:"#000", margin:0 }}>نتيجة التحليل</p>
+            <button onClick={()=>{navigator.clipboard.writeText(analysis);}} style={{ marginRight:"auto", background:"#f1f5f9", border:"none", borderRadius:6, padding:"4px 10px", fontSize:"0.65rem", color:"#374151", cursor:"pointer", fontWeight:700 }}>نسخ</button>
+          </div>
+          <div style={{ fontSize:"0.78rem", color:"#000", lineHeight:1.8, whiteSpace:"pre-wrap", fontFamily:"inherit" }}>{analysis}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ControlRoomTab() {
-  const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity">("overview");
+  const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity"|"archive"|"analyzer">("overview");
   const [overview, setOverview] = useState<CrOverview|null>(null);
   const [msgs, setMsgs] = useState<CrMsg[]>([]);
   const [otps, setOtps] = useState<CrOtp[]>([]);
@@ -421,6 +665,7 @@ function ControlRoomTab() {
   const [revealOtp, setRevealOtp] = useState<Set<number>>(new Set());
 
   const load = async (section: typeof sub) => {
+    if (section === "archive" || section === "analyzer") return;
     setLoading(true);
     try {
       if (section === "overview") {
@@ -445,10 +690,12 @@ function ControlRoomTab() {
   const fmt = (d:string) => new Date(d).toLocaleString("ar-EG",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
 
   const SUB_TABS = [
-    { id:"overview",  label:"📊 نظرة عامة", icon: BarChart3 },
-    { id:"messages",  label:"💬 الرسائل",    icon: MessageSquare },
-    { id:"otps",      label:"🔑 رموز التحقق",icon: KeyRound },
-    { id:"activity",  label:"📋 سجل التحركات",icon: Activity },
+    { id:"overview",  label:"📊 نظرة عامة",   icon: BarChart3 },
+    { id:"messages",  label:"💬 الرسائل",      icon: MessageSquare },
+    { id:"otps",      label:"🔑 رموز التحقق",  icon: KeyRound },
+    { id:"activity",  label:"📋 سجل التحركات", icon: Activity },
+    { id:"archive",   label:"📦 الأرشيف",      icon: Download },
+    { id:"analyzer",  label:"🤖 محلل الكود",   icon: Bot },
   ] as const;
 
   const cell: React.CSSProperties = { padding:"10px 12px", borderBottom:"1px solid #f1f5f9", fontSize:"0.75rem", color:"#000", verticalAlign:"top" };
@@ -683,6 +930,9 @@ function ControlRoomTab() {
           </div>
         </div>
       )}
+
+      {sub === "archive"  && <ArchiveTab />}
+      {sub === "analyzer" && <AnalyzerTab />}
     </div>
   );
 }

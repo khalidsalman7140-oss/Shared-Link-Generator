@@ -19,6 +19,12 @@ import {
 } from "@workspace/db";
 import { notifyAdmin, notifyUser } from "../../utils/notify.js";
 import { sendPushToAll } from "../push.js";
+import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+const _require = createRequire(import.meta.url);
+const archiver = _require("archiver") as typeof import("archiver");
+import { ai } from "@workspace/integrations-gemini-ai";
 
 const ADMIN_EMAIL = process.env["ADMIN_EMAIL"] ?? "khalidsalman7140@gmail.com";
 
@@ -467,6 +473,173 @@ router.get("/admin/control-room/user-messages/:userId", requireAdmin, async (req
     }));
     res.json(result);
   } catch { res.status(500).json({ error: "Failed" }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   WORKSPACE = the project root on the Replit container
+══════════════════════════════════════════════════════════ */
+const WORKSPACE = path.resolve("/home/runner/workspace");
+const BACKUP_EXCLUDE = ["node_modules", ".git", "dist", ".local", "coverage", ".cache", "__pycache__"];
+
+interface FileNode {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+  size?: number;
+  children?: FileNode[];
+}
+
+function buildTree(dir: string, rel: string = "", depth: number = 0): FileNode[] {
+  if (depth > 5) return [];
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+  catch { return []; }
+
+  const nodes: FileNode[] = [];
+  for (const e of entries) {
+    if (BACKUP_EXCLUDE.includes(e.name) || e.name.startsWith(".env")) continue;
+    const full = path.join(dir, e.name);
+    const relPath = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) {
+      nodes.push({ name: e.name, path: relPath, type: "dir", children: buildTree(full, relPath, depth + 1) });
+    } else {
+      const size = (() => { try { return fs.statSync(full).size; } catch { return 0; } })();
+      nodes.push({ name: e.name, path: relPath, type: "file", size });
+    }
+  }
+  return nodes.sort((a, b) => {
+    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/* ── 📦 Backup: Export ZIP ───────────────────────────────── */
+router.get("/admin/backup/export", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="yemenchat-backup-${date}.zip"`);
+
+  const arc = archiver("zip", { zlib: { level: 6 } });
+  arc.pipe(res);
+
+  const filterFn = (entry: { name: string }) => {
+    const parts = entry.name.split("/");
+    if (parts.some(p => BACKUP_EXCLUDE.includes(p))) return false;
+    return entry;
+  };
+
+  for (const dir of ["artifacts", "lib", "scripts"]) {
+    const dp = path.join(WORKSPACE, dir);
+    if (fs.existsSync(dp)) arc.directory(dp, dir, filterFn as Parameters<typeof arc.directory>[2]);
+  }
+  for (const f of ["package.json", "pnpm-workspace.yaml", "tsconfig.json", "tsconfig.base.json", "replit.md", "drizzle.config.ts"]) {
+    const fp = path.join(WORKSPACE, f);
+    if (fs.existsSync(fp)) arc.file(fp, { name: f });
+  }
+
+  await arc.finalize();
+});
+
+/* ── 🗂 Code Explorer: File Tree ─────────────────────────── */
+router.get("/admin/code-explorer/tree", requireAdmin, (_req: Request, res: Response): void => {
+  const roots = ["artifacts", "lib", "scripts"];
+  const tree: FileNode[] = [];
+  for (const r of roots) {
+    const dp = path.join(WORKSPACE, r);
+    if (fs.existsSync(dp)) {
+      tree.push({ name: r, path: r, type: "dir", children: buildTree(dp, r) });
+    }
+  }
+  res.json(tree);
+});
+
+/* ── 📄 Code Explorer: File Content ─────────────────────── */
+router.get("/admin/code-explorer/file", requireAdmin, (req: Request, res: Response): void => {
+  const filePath = (req.query["path"] as string | undefined) ?? "";
+  if (!filePath) { res.status(400).json({ error: "Missing path" }); return; }
+
+  const full = path.resolve(WORKSPACE, filePath);
+  if (!full.startsWith(WORKSPACE)) { res.status(403).json({ error: "Access denied" }); return; }
+  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) { res.status(404).json({ error: "Not found" }); return; }
+
+  const stat = fs.statSync(full);
+  if (stat.size > 150 * 1024) {
+    res.json({ content: `[ الملف كبير جداً: ${Math.round(stat.size / 1024)} KB — يمكنك تصديره عبر النسخة الاحتياطية ]`, truncated: true, size: stat.size });
+    return;
+  }
+  try {
+    const content = fs.readFileSync(full, "utf-8");
+    res.json({ content, size: stat.size });
+  } catch {
+    res.json({ content: "[ ملف ثنائي — لا يمكن عرضه كنص ]", binary: true, size: stat.size });
+  }
+});
+
+/* ── 🤖 Code Analyzer: AI Analysis ──────────────────────── */
+router.post("/admin/code-explorer/analyze", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { question, filePaths } = req.body as { question: string; filePaths: string[] };
+  if (!question) { res.status(400).json({ error: "Missing question" }); return; }
+
+  const files = (filePaths ?? []).slice(0, 6).map((fp: string) => {
+    const full = path.resolve(WORKSPACE, fp);
+    if (!full.startsWith(WORKSPACE)) return null;
+    try {
+      const content = fs.readFileSync(full, "utf-8").slice(0, 8000);
+      return `\n\n### FILE: ${fp}\n\`\`\`\n${content}\n\`\`\``;
+    } catch { return null; }
+  }).filter(Boolean).join("");
+
+  const prompt = `أنت مساعد تقني متخصص في تحليل الكود البرمجي لمنصة يمن شات (YemenChat).\nسؤال المالك: ${question}${files}\n\nقدّم تحليلاً دقيقاً وتوصيات عملية بالعربية.`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+    res.json({ analysis: result.text ?? "لم يتمكن المحرك من التحليل." });
+  } catch {
+    res.status(500).json({ error: "فشل التحليل — تحقق من مفتاح Gemini" });
+  }
+});
+
+/* ── 📊 Data Export: All data as CSV ZIP ────────────────── */
+router.get("/admin/data-export", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="yemenchat-data-${date}.zip"`);
+
+  const arc = archiver("zip", { zlib: { level: 6 } });
+  arc.pipe(res);
+
+  const toCsv = (rows: Record<string, unknown>[]): string => {
+    if (!rows.length) return "no data";
+    const headers = Object.keys(rows[0]!);
+    const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    return [headers.join(","), ...rows.map(r => headers.map(h => escape(r[h])).join(","))].join("\n");
+  };
+
+  try {
+    const [users, convs, msgs, otps, audit, payments] = await Promise.all([
+      db.select().from(userPlansTable).orderBy(desc(userPlansTable.createdAt)).limit(5000),
+      db.select().from(conversationsTable).orderBy(desc(conversationsTable.createdAt)).limit(5000),
+      db.select({ id: messagesTable.id, role: messagesTable.role, content: sql<string>`LEFT(${messagesTable.content},200)`, createdAt: messagesTable.createdAt, conversationId: messagesTable.conversationId }).from(messagesTable).orderBy(desc(messagesTable.createdAt)).limit(5000),
+      db.select().from(otpCodesTable).orderBy(desc(otpCodesTable.createdAt)).limit(5000),
+      db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(5000),
+      db.select().from(paymentRequestsTable).orderBy(desc(paymentRequestsTable.createdAt)).limit(5000),
+    ]);
+
+    arc.append(toCsv(users as Record<string,unknown>[]), { name: "users-plans.csv" });
+    arc.append(toCsv(convs as Record<string,unknown>[]), { name: "conversations.csv" });
+    arc.append(toCsv(msgs as Record<string,unknown>[]), { name: "messages.csv" });
+    arc.append(toCsv(otps as Record<string,unknown>[]), { name: "otp-codes.csv" });
+    arc.append(toCsv(audit as Record<string,unknown>[]), { name: "audit-log.csv" });
+    arc.append(toCsv(payments as Record<string,unknown>[]), { name: "payments.csv" });
+    arc.append(JSON.stringify({ exportedAt: new Date().toISOString(), platform: "YemenChat", version: "1.0" }, null, 2), { name: "meta.json" });
+  } catch (e) {
+    arc.append(`Export error: ${String(e)}`, { name: "error.txt" });
+  }
+
+  await arc.finalize();
 });
 
 export default router;
