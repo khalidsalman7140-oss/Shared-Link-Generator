@@ -5,3 +5,4 @@ export * from "./adminSchema";
 export * from "./fraudSchema";
 export * from "./apiKeys";
 export * from "./adminMessages";
+export * from "./deepServices";

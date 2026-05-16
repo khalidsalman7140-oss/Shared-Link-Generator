@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
@@ -34,6 +34,7 @@ const HubPage = lazy(() => import("@/pages/hub"));
 const DesignPage = lazy(() => import("@/pages/design"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const OwnerPortal = lazy(() => import("@/pages/owner-portal"));
+const DeepServicesPage = lazy(() => import("@/pages/deep-services"));
 
 const SignInPage = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -155,6 +156,48 @@ function ServicesRoute() {
   );
 }
 
+/* ── WhatsApp-style notification badge ── */
+function NotificationBadge() {
+  const { isSignedIn } = useUser();
+  const baseTitle = "يمن شات";
+
+  useEffect(() => {
+    if (!isSignedIn) { document.title = baseTitle; return; }
+
+    let lastCount = 0;
+
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/messages");
+        if (!r.ok) return;
+        const msgs = await r.json() as Array<{ direction: string; isRead: boolean }>;
+        const unread = msgs.filter(m => m.direction === "admin_to_user" && !m.isRead).length;
+        if (unread !== lastCount) {
+          lastCount = unread;
+          document.title = unread > 0 ? `(${unread}) ${baseTitle}` : baseTitle;
+          if (unread > 0 && "Notification" in window && Notification.permission === "granted") {
+            new Notification("يمن شات — رسالة جديدة من الإدارة", {
+              body: `لديك ${unread} رسالة جديدة من خالد سلمان`,
+              icon: "/logo.svg",
+            });
+          }
+        }
+      } catch {}
+    };
+
+    // Request notification permission silently
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    poll();
+    const id = setInterval(poll, 25000);
+    return () => { clearInterval(id); document.title = baseTitle; };
+  }, [isSignedIn]);
+
+  return null;
+}
+
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const qc = useQueryClient();
@@ -242,12 +285,19 @@ function AppRouter() {
                 <Route path="/owner" component={OwnerPortal} />
                 <Route path="/hub" component={HubPage} />
                 <Route path="/design" component={DesignPage} />
+                <Route path="/deep-services" component={() => (
+                  <>
+                    <Show when="signed-in"><DeepServicesPage /></Show>
+                    <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+                  </>
+                )} />
                 <Route component={NotFound} />
               </Switch>
             </Suspense>
             <Toaster />
             <InstallPWA />
             <RatingButton />
+            <NotificationBadge />
           </TooltipProvider>
         </I18nProvider>
       </QueryClientProvider>

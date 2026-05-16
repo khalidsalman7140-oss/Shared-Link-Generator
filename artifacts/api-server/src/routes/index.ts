@@ -15,6 +15,7 @@ import logosRouter from "./logos.js";
 import booksRouter from "./books.js";
 import docsRouter from "./docs.js";
 import messagesRouter from "./messages/index.js";
+import deepServicesRouter from "./deep-services/index.js";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(logosRouter);
 router.use(booksRouter);
 router.use(docsRouter);
 router.use(messagesRouter);
+router.use(deepServicesRouter);
 
 export default router;

@@ -26,8 +26,208 @@ const TABS = [
   { id: "admin",   label: "لوحة التحكم",           icon: Shield },
   { id: "reviews", label: "التقييمات",             icon: Star },
   { id: "contact", label: "التواصل",               icon: MessageCircle },
+  { id: "deep",    label: "الخدمات العميقة",        icon: Zap },
 ] as const;
 type TabId = typeof TABS[number]["id"];
+
+/* ──────── Deep Services Admin Tab Component ──────── */
+interface DeepReq {
+  id: number; userId: string; userEmail: string | null; userName: string | null;
+  category: string; title: string; description: string; budget: string | null;
+  deadline: string | null; status: string; adminNotes: string | null;
+  priority: string | null; createdAt: string;
+}
+const DS_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  pending:     { label: "⏳ جديد",        color: "#b45309", bg: "#fffbeb" },
+  reviewing:   { label: "👀 مراجعة",      color: "#1d4ed8", bg: "#eff6ff" },
+  "in-progress":{ label: "⚙️ تنفيذ",     color: "#7c3aed", bg: "#f5f3ff" },
+  done:        { label: "✅ مكتمل",       color: "#166534", bg: "#f0fdf4" },
+  rejected:    { label: "❌ مرفوض",       color: "#991b1b", bg: "#fef2f2" },
+};
+const DS_CAT_EMOJI: Record<string, string> = {
+  website:"🌐", app:"📱", design:"🎨", marketing:"📣",
+  analysis:"📊", academic:"🎓", content:"✍️", automation:"⚡",
+  consulting:"💼", other:"🔧",
+};
+
+function DeepServicesAdminTab() {
+  const [reqs, setReqs] = useState<DeepReq[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [editNotes, setEditNotes] = useState<Record<number, string>>({});
+  const [saving, setSaving] = useState<number | null>(null);
+
+  const fetchReqs = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/deep-services");
+      if (r.ok) setReqs(await r.json() as DeepReq[]);
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchReqs(); }, []);
+
+  const updateReq = async (id: number, updates: { status?: string; adminNotes?: string; priority?: string }) => {
+    setSaving(id);
+    try {
+      const r = await fetch(`/api/admin/deep-services/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (r.ok) {
+        const updated = await r.json() as DeepReq;
+        setReqs(prev => prev.map(rq => rq.id === id ? updated : rq));
+      }
+    } catch {}
+    finally { setSaving(null); }
+  };
+
+  const filtered = reqs.filter(r => statusFilter === "all" || r.status === statusFilter);
+  const counts = {
+    all: reqs.length,
+    pending: reqs.filter(r => r.status === "pending").length,
+    reviewing: reqs.filter(r => r.status === "reviewing").length,
+    "in-progress": reqs.filter(r => r.status === "in-progress").length,
+    done: reqs.filter(r => r.status === "done").length,
+  };
+
+  return (
+    <div style={{ padding: "16px" }}>
+      {/* header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontWeight: 900, fontSize: "1rem", color: "#000", margin: "0 0 2px" }}>⚙️ الخدمات العميقة</h2>
+          <p style={{ color: "#9ca3af", fontSize: "0.7rem", margin: 0 }}>طلبات المستخدمين المعقدة للمعالجة المباشرة</p>
+        </div>
+        <button onClick={fetchReqs}
+          style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "6px 12px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+          <RefreshCw style={{ width: 12, height: 12 }} />تحديث
+        </button>
+      </div>
+
+      {/* stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 7, marginBottom: 16 }}>
+        {[
+          { label: "الكل",     val: counts.all,           color: "#6b7280" },
+          { label: "جديدة",   val: counts.pending,        color: "#b45309" },
+          { label: "مراجعة",  val: counts.reviewing,      color: "#1d4ed8" },
+          { label: "تنفيذ",   val: counts["in-progress"], color: "#7c3aed" },
+          { label: "مكتملة",  val: counts.done,           color: "#166534" },
+        ].map((s, i) => (
+          <div key={i} style={{ background: `${s.color}08`, border: `1.5px solid ${s.color}20`, borderRadius: 10, padding: "8px 4px", textAlign: "center" }}>
+            <p style={{ fontWeight: 900, fontSize: "1.2rem", color: s.color, margin: "0 0 1px", lineHeight: 1 }}>{s.val}</p>
+            <p style={{ fontSize: "0.57rem", color: "#6b7280", margin: 0, fontWeight: 700 }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* filter */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 14 }}>
+        {(["all","pending","reviewing","in-progress","done","rejected"] as const).map(f => (
+          <button key={f} onClick={() => setStatusFilter(f)}
+            style={{ background: statusFilter===f?"#000":"#f1f5f9", color: statusFilter===f?"#fff":"#374151", border: "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 12px", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+            {f === "all" ? "الكل" : DS_STATUS[f]?.label ?? f}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid #000", borderTopColor: "transparent", animation: "ospin 0.7s linear infinite", margin: "0 auto" }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 20px" }}>
+          <p style={{ fontSize: "2.5rem", margin: "0 0 10px" }}>📭</p>
+          <p style={{ color: "#9ca3af", fontSize: "0.85rem", fontWeight: 700 }}>لا توجد طلبات</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.map(req => {
+            const st = DS_STATUS[req.status] ?? { label: req.status, color: "#6b7280", bg: "#f8fafc" };
+            const isExpanded = expanded === req.id;
+            return (
+              <div key={req.id} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+                {/* card header */}
+                <div style={{ padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+                  onClick={() => setExpanded(isExpanded ? null : req.id)}>
+                  <span style={{ fontSize: "1.3rem", flexShrink: 0 }}>{DS_CAT_EMOJI[req.category] ?? "🔧"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontWeight: 800, fontSize: "0.82rem", color: "#000", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.title}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ background: st.bg, color: st.color, fontSize: "0.6rem", fontWeight: 800, padding: "1px 7px", borderRadius: 20 }}>{st.label}</span>
+                      <span style={{ color: "#9ca3af", fontSize: "0.6rem" }}>{req.userEmail ?? req.userId.slice(0, 12)}</span>
+                      <span style={{ color: "#9ca3af", fontSize: "0.6rem" }}>{new Date(req.createdAt).toLocaleDateString("ar-EG")}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* expanded content */}
+                {isExpanded && (
+                  <div style={{ borderTop: "1px solid #f1f5f9", padding: "14px", background: "#f8fafc", display: "flex", flexDirection: "column", gap: 12 }}>
+                    <p style={{ fontSize: "0.78rem", color: "#374151", lineHeight: 1.7, margin: 0, whiteSpace: "pre-wrap" }}>{req.description}</p>
+                    {(req.budget || req.deadline) && (
+                      <div style={{ display: "flex", gap: 14 }}>
+                        {req.budget && <p style={{ fontSize: "0.72rem", color: "#059669", fontWeight: 700, margin: 0 }}>💰 {req.budget}</p>}
+                        {req.deadline && <p style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 700, margin: 0 }}>📅 {req.deadline}</p>}
+                      </div>
+                    )}
+
+                    {/* status changer */}
+                    <div>
+                      <p style={{ fontWeight: 800, fontSize: "0.75rem", color: "#000", margin: "0 0 7px" }}>تغيير الحالة:</p>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {(["pending","reviewing","in-progress","done","rejected"] as const).map(s => (
+                          <button key={s} onClick={() => updateReq(req.id, { status: s })}
+                            disabled={saving === req.id}
+                            style={{ background: req.status===s?"#000":"#f1f5f9", color: req.status===s?"#fff":"#374151", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "4px 10px", fontSize: "0.65rem", fontWeight: 700, cursor: "pointer" }}>
+                            {DS_STATUS[s]?.label ?? s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* priority */}
+                    <div>
+                      <p style={{ fontWeight: 800, fontSize: "0.75rem", color: "#000", margin: "0 0 7px" }}>الأولوية:</p>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {(["low","normal","high"] as const).map(p => (
+                          <button key={p} onClick={() => updateReq(req.id, { priority: p })}
+                            style={{ background: req.priority===p?"#000":"#f1f5f9", color: req.priority===p?"#fff":"#374151", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "4px 10px", fontSize: "0.65rem", fontWeight: 700, cursor: "pointer" }}>
+                            {p === "low" ? "🟢 عادي" : p === "normal" ? "🟡 متوسط" : "🔴 عاجل"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* admin notes */}
+                    <div>
+                      <p style={{ fontWeight: 800, fontSize: "0.75rem", color: "#000", margin: "0 0 6px" }}>ملاحظات الإدارة (تظهر للمستخدم):</p>
+                      <textarea
+                        value={editNotes[req.id] ?? req.adminNotes ?? ""}
+                        onChange={e => setEditNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        rows={3}
+                        placeholder="اكتب ردك أو تحديث الحالة للمستخدم..."
+                        style={{ width: "100%", background: "#fff", border: "1.5px solid #e2e8f0", color: "#000", padding: "9px 11px", borderRadius: 10, fontSize: "0.78rem", fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }}
+                      />
+                      <button onClick={() => updateReq(req.id, { adminNotes: editNotes[req.id] ?? req.adminNotes ?? "" })}
+                        disabled={saving === req.id}
+                        style={{ marginTop: 7, background: "#000", color: "#fff", border: "none", borderRadius: 9, padding: "8px 18px", fontWeight: 800, fontSize: "0.75rem", cursor: "pointer" }}>
+                        {saving === req.id ? "جاري الحفظ..." : "💾 حفظ الملاحظة"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PLAN_COLOR: Record<string,string> = {
   free:"#6b7280", weekly:"#3b82f6", monthly:"#8b5cf6", annual:"#f59e0b", enterprise:"#10b981",
@@ -906,6 +1106,9 @@ export default function OwnerPortal() {
             </div>
           </div>
         )}
+
+        {/* ══════════ TAB: DEEP SERVICES ══════════ */}
+        {tab === "deep" && <DeepServicesAdminTab />}
 
       </div>
 
