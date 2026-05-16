@@ -816,21 +816,14 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Premium required notice */}
+      {/* Premium notice — soft, dismissible */}
       {isPremiumNeeded && (
-        <div className="mx-4 mt-3 px-4 py-3 rounded-xl border bg-yellow-500/5 border-yellow-500/30 flex flex-col gap-2 text-sm">
-          <p className="text-yellow-400 font-medium flex items-center gap-1.5">
-            <Crown className="w-4 h-4" />
-            {lang === "ar" ? "هذه المهمة تتطلب خطة مدفوعة" : "This task requires a paid plan"}
-          </p>
-          <p className="text-muted-foreground text-xs">{limitError?.message}</p>
-          <div className="flex gap-2">
-            <Link href="/subscribe?plan=weekly">
-              <Button size="sm" className="text-xs h-7 gap-1"><Zap className="w-3 h-3" />{lang === "ar" ? "اشترك $2.99/أسبوع" : "Subscribe $2.99/week"}</Button>
-            </Link>
-            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => setLimitError(null)}>
-              {lang === "ar" ? "متابعة الدردشة" : "Continue chatting"}
-            </Button>
+        <div className="mx-4 mt-3 px-4 py-2.5 rounded-xl border bg-primary/5 border-primary/20 flex items-center gap-3 text-sm">
+          <Crown className="w-4 h-4 text-primary shrink-0" />
+          <p className="flex-1 text-muted-foreground text-xs">{lang === "ar" ? "يمكنك الاشتراك للحصول على سرعة أعلى وأولوية في المعالجة." : "Subscribe for faster responses and priority processing."}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/subscribe"><Button size="sm" className="text-xs h-6 px-2 gap-1"><Zap className="w-2.5 h-2.5" />{lang === "ar" ? "اشترك" : "Subscribe"}</Button></Link>
+            <button onClick={() => setLimitError(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
           </div>
         </div>
       )}

@@ -33,6 +33,7 @@ const ToolsPage = lazy(() => import("@/pages/tools"));
 const HubPage = lazy(() => import("@/pages/hub"));
 const DesignPage = lazy(() => import("@/pages/design"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const OwnerPortal = lazy(() => import("@/pages/owner-portal"));
 
 const SignInPage = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -238,6 +239,7 @@ function AppRouter() {
                   </>
                 )} />
                 <Route path="/admin" component={AdminPage} />
+                <Route path="/owner" component={OwnerPortal} />
                 <Route path="/hub" component={HubPage} />
                 <Route path="/design" component={DesignPage} />
                 <Route component={NotFound} />

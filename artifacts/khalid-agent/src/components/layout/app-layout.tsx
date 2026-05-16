@@ -57,7 +57,6 @@ function AvatarMenu() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-gray-900 truncate">{displayName}</p>
-              <p className="text-xs text-gray-500 truncate" dir="ltr">{email}</p>
             </div>
           </div>
 

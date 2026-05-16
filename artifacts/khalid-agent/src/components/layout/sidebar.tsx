@@ -17,6 +17,7 @@ import {
   Info,
   Wrench,
   Presentation,
+  ShieldCheck,
 } from "lucide-react";
 import { useUser, useClerk, Show } from "@clerk/react";
 import {
@@ -269,6 +270,18 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
 
           {/* 8. عن خالد */}
           {navItem("/about", <Info className="w-4 h-4 text-pink-400" />, "عن خالد")}
+
+          {/* ── فاصل ── */}
+          <div className="my-2 border-t border-sidebar-border/40" />
+
+          {/* 9. بوابة خالد سلمان */}
+          {navItem(
+            "/owner",
+            <ShieldCheck className="w-4 h-4 text-amber-400" />,
+            "بوابة خالد سلمان",
+            <span className="text-[9px] bg-amber-400/15 text-amber-400 border border-amber-400/30 rounded-full px-1.5 py-0.5">مالك</span>,
+            true,
+          )}
         </div>
       </ScrollArea>
 
@@ -286,9 +299,8 @@ export function AppSidebar({ isOpen, setIsOpen, isMobile }: AppSidebarProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-sidebar-foreground truncate">
-                  {user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : displayEmail}
+                  {user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : "مستخدم مسجّل"}
                 </p>
-                <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
               </div>
             </div>
             <button
