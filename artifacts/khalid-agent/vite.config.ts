@@ -57,6 +57,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    target: "es2020",
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 600,
+    minify: "esbuild",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          router: ["wouter"],
+          clerk: ["@clerk/react"],
+          query: ["@tanstack/react-query"],
+        },
+      },
+    },
   },
   server: {
     port,

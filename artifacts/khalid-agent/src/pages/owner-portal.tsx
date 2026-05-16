@@ -108,6 +108,55 @@ function DeepServicesAdminTab() {
         </button>
       </div>
 
+      {/* ── AI Quick Tools Links (admin shortcuts) ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <a href="/social-content" target="_blank" rel="noopener noreferrer"
+          style={{ textDecoration: "none", background: "linear-gradient(135deg,#1877f2,#0088cc)", borderRadius: 12, padding: "11px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "1.2rem" }}>📱</span>
+          <div>
+            <p style={{ fontWeight: 900, fontSize: "0.75rem", color: "#fff", margin: 0 }}>صانع السوشيال</p>
+            <p style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>أداة مجانية فورية</p>
+          </div>
+        </a>
+        <a href="/code-fixer" target="_blank" rel="noopener noreferrer"
+          style={{ textDecoration: "none", background: "linear-gradient(135deg,#000,#1a1a2e)", borderRadius: 12, padding: "11px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "1.2rem" }}>🔧</span>
+          <div>
+            <p style={{ fontWeight: 900, fontSize: "0.75rem", color: "#fff", margin: 0 }}>مصلح الأكواد</p>
+            <p style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.7)", margin: 0 }}>أداة مجانية فورية</p>
+          </div>
+        </a>
+      </div>
+
+      {/* ── Solution Analytics ── */}
+      {!loading && reqs.length > 0 && (
+        <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "14px", marginBottom: 16 }}>
+          <p style={{ fontWeight: 900, fontSize: "0.85rem", color: "#000", margin: "0 0 12px" }}>📊 تحليل الطلبات</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+            {[
+              { label: "تحتاج تدخل مالي",     val: reqs.filter(r => r.priority === "high" && r.status !== "done" && r.status !== "rejected").length, color: "#dc2626", bg: "#fef2f2", emoji: "💰" },
+              { label: "تحتاج تواصل واتساب",  val: reqs.filter(r => ["reviewing","in-progress"].includes(r.status)).length,                          color: "#7c3aed", bg: "#f5f3ff", emoji: "💬" },
+              { label: "مكتملة بنجاح",         val: reqs.filter(r => r.status === "done").length,                                                    color: "#059669", bg: "#f0fdf4", emoji: "✅" },
+            ].map((s, i) => (
+              <div key={i} style={{ background: s.bg, border: `1.5px solid ${s.color}20`, borderRadius: 10, padding: "8px 6px", textAlign: "center" }}>
+                <p style={{ fontSize: "1rem", margin: "0 0 2px" }}>{s.emoji}</p>
+                <p style={{ fontWeight: 900, fontSize: "1.1rem", color: s.color, margin: "0 0 1px", lineHeight: 1 }}>{s.val}</p>
+                <p style={{ fontSize: "0.55rem", color: "#6b7280", margin: 0, fontWeight: 700, lineHeight: 1.3 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+          {/* urgent requests alert */}
+          {reqs.filter(r => r.priority === "high" && r.status !== "done" && r.status !== "rejected").length > 0 && (
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: "1rem" }}>🚨</span>
+              <p style={{ fontSize: "0.72rem", color: "#991b1b", fontWeight: 800, margin: 0 }}>
+                {reqs.filter(r => r.priority === "high" && r.status !== "done" && r.status !== "rejected").length} طلب عاجل يحتاج معالجتك الفورية
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 7, marginBottom: 16 }}>
         {[

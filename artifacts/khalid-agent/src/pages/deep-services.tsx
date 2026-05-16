@@ -272,9 +272,30 @@ export default function DeepServicesPage() {
               </div>
             </div>
 
+            {/* ── AI Quick Tools ── */}
+            <div style={{ marginBottom: 22 }}>
+              <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: "0 0 10px" }}>⚡ أدوات الذكاء الاصطناعي الفورية — مجانية</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <a href="/social-content" style={{ textDecoration: "none", display: "block" }}>
+                  <div style={{ background: "linear-gradient(135deg,#1877f2,#0088cc)", borderRadius: 14, padding: "14px 12px", cursor: "pointer" }}>
+                    <p style={{ fontSize: "1.4rem", margin: "0 0 6px" }}>📱</p>
+                    <p style={{ fontWeight: 900, fontSize: "0.82rem", color: "#fff", margin: "0 0 3px" }}>صانع محتوى السوشيال</p>
+                    <p style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.75)", margin: 0 }}>فيسبوك، واتساب، تيليغرام، تيك توك</p>
+                  </div>
+                </a>
+                <a href="/code-fixer" style={{ textDecoration: "none", display: "block" }}>
+                  <div style={{ background: "linear-gradient(135deg,#000,#1a1a2e)", borderRadius: 14, padding: "14px 12px", cursor: "pointer" }}>
+                    <p style={{ fontSize: "1.4rem", margin: "0 0 6px" }}>🔧</p>
+                    <p style={{ fontWeight: 900, fontSize: "0.82rem", color: "#fff", margin: "0 0 3px" }}>محلل ومصلح الأكواد</p>
+                    <p style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.75)", margin: 0 }}>JS, Python, PHP, HTML وأكثر</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+
             {/* categories grid */}
             <div style={{ marginBottom: 24 }}>
-              <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: "0 0 12px" }}>🗂️ فئات الخدمات</p>
+              <p style={{ fontWeight: 900, fontSize: "0.9rem", color: "#000", margin: "0 0 12px" }}>🗂️ فئات الخدمات العميقة (تتطلب تدخل بشري)</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {CATEGORIES.map(c => (
                   <button key={c.id} onClick={() => { setSelCategory(c.id); setView("form"); }}

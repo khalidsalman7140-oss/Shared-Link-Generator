@@ -16,6 +16,7 @@ import booksRouter from "./books.js";
 import docsRouter from "./docs.js";
 import messagesRouter from "./messages/index.js";
 import deepServicesRouter from "./deep-services/index.js";
+import aiToolsRouter from "./ai-tools/index.js";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(booksRouter);
 router.use(docsRouter);
 router.use(messagesRouter);
 router.use(deepServicesRouter);
+router.use(aiToolsRouter);
 
 export default router;

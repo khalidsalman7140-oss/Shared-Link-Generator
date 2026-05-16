@@ -186,11 +186,18 @@ export default function DashboardPage() {
               style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", width: 34, height: 34, borderRadius: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <ArrowLeft style={{ width: 15, height: 15 }} />
             </button>
-            <div style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#1a1a2e", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#f59e0b", fontSize: "1rem" }}>
+            <label style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#1a1a2e", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#f59e0b", fontSize: "1rem", cursor: "pointer", position: "relative", flexDirection: "column" }}
+              title="انقر لتغيير الصورة">
               {user.imageUrl
                 ? <img src={user.imageUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : displayName[0]?.toUpperCase() ?? "؟"}
-            </div>
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try { await user.setProfileImage({ file }); await user.reload(); }
+                catch {}
+              }} />
+            </label>
             <div style={{ flex: 1 }}>
               <p style={{ color: "#fff", fontWeight: 900, fontSize: "0.95rem", margin: 0 }}>{displayName}</p>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>

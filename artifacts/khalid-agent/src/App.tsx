@@ -35,6 +35,8 @@ const DesignPage = lazy(() => import("@/pages/design"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const OwnerPortal = lazy(() => import("@/pages/owner-portal"));
 const DeepServicesPage = lazy(() => import("@/pages/deep-services"));
+const SocialContentPage = lazy(() => import("@/pages/social-content"));
+const CodeFixerPage = lazy(() => import("@/pages/code-fixer"));
 
 const SignInPage = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -283,6 +285,8 @@ function AppRouter() {
                 )} />
                 <Route path="/admin" component={AdminPage} />
                 <Route path="/owner" component={OwnerPortal} />
+                <Route path="/social-content" component={SocialContentPage} />
+                <Route path="/code-fixer" component={CodeFixerPage} />
                 <Route path="/hub" component={HubPage} />
                 <Route path="/design" component={DesignPage} />
                 <Route path="/deep-services" component={() => (
