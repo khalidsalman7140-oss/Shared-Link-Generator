@@ -47,6 +47,8 @@ export default function DashboardPage() {
   const { isRTL } = useI18n();
 
   const [activeTab, setActiveTab] = useState<"overview"|"works"|"messages"|"subscription">("overview");
+  const [coverPhoto, setCoverPhoto] = useState<string>(() => localStorage.getItem("ks_cover_photo") ?? "");
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   /* data */
   const [usage, setUsage]           = useState<UsageInfo | null>(null);
@@ -179,18 +181,46 @@ export default function DashboardPage() {
 
       {/* ── Sticky header ── */}
       <div style={{ background: "#000", position: "sticky", top: 0, zIndex: 40 }}>
+        {/* Cover Photo */}
+        <div style={{ position: "relative", height: 100, overflow: "hidden", background: coverPhoto ? "transparent" : "linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)" }}>
+          {coverPhoto && <img src={coverPhoto} alt="cover" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
+          <button onClick={() => coverInputRef.current?.click()}
+            style={{ position: "absolute", bottom: 8, insetInlineEnd: 10, background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 20, padding: "4px 12px", fontSize: "0.65rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, backdropFilter: "blur(4px)" }}>
+            📷 {coverPhoto ? "تغيير الغلاف" : "إضافة صورة غلاف"}
+          </button>
+          {coverPhoto && (
+            <button onClick={() => { setCoverPhoto(""); localStorage.removeItem("ks_cover_photo"); }}
+              style={{ position: "absolute", bottom: 8, insetInlineStart: 10, background: "rgba(220,38,38,0.7)", border: "none", color: "#fff", borderRadius: 20, padding: "4px 10px", fontSize: "0.62rem", fontWeight: 700, cursor: "pointer" }}>
+              ✕ حذف
+            </button>
+          )}
+          <input ref={coverInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+              const url = ev.target?.result as string;
+              setCoverPhoto(url);
+              localStorage.setItem("ks_cover_photo", url);
+            };
+            reader.readAsDataURL(file);
+          }} />
+        </div>
+
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 16px" }}>
           {/* top bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0 0" }}>
             <button onClick={() => setLocation("/chat")}
               style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", width: 34, height: 34, borderRadius: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <ArrowLeft style={{ width: 15, height: 15 }} />
             </button>
-            <label style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#1a1a2e", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#f59e0b", fontSize: "1rem", cursor: "pointer", position: "relative", flexDirection: "column" }}
-              title="انقر لتغيير الصورة">
+            {/* Avatar — auto-fetched from Gmail/Google, click to change */}
+            <label style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", background: "#1a1a2e", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#f59e0b", fontSize: "1rem", cursor: "pointer", border: "2px solid rgba(255,255,255,0.3)", boxSizing: "border-box" }}
+              title="انقر لتغيير الصورة الشخصية">
               {user.imageUrl
                 ? <img src={user.imageUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : displayName[0]?.toUpperCase() ?? "؟"}
+                : <span>{displayName[0]?.toUpperCase() ?? "؟"}</span>}
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file) return;

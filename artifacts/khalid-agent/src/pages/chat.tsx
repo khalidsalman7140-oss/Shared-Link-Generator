@@ -763,7 +763,7 @@ export default function Chat() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="relative flex flex-col h-full">
-      <div className="relative z-10 flex flex-col h-full bg-[#f8f9fa]">
+      <div className="relative z-10 flex flex-col h-full bg-white">
 
       {/* Services Marquee */}
       <div className="overflow-hidden border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/8 to-primary/5 py-1.5 select-none shrink-0">
@@ -828,56 +828,79 @@ export default function Chat() {
         </div>
       )}
 
-      <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-8 py-6 bg-[#f8f9fa]">
+      <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-8 py-6 bg-white">
         {!conversationId && localMessages.length === 0 ? (
           <WelcomeScreen />
         ) : (
-          <div className="max-w-4xl mx-auto space-y-8 pb-20">
+          <div className="max-w-3xl mx-auto space-y-1 pb-24">
             {isConvLoading && (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#000" }} />
               </div>
             )}
             {localMessages.map((msg) => (
-              <div key={msg.id} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
-                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 shadow-sm"
-                  style={{ borderColor: msg.role === "user" ? "rgba(124,58,237,0.3)" : "rgba(124,58,237,0.2)" }}>
-                  {msg.role === "user" ? (
-                    user?.imageUrl
-                      ? <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-primary flex items-center justify-center"><User className="w-5 h-5 text-white" /></div>
-                  ) : (
-                    <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5" />
+              <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")} style={{ marginBottom: 4 }}>
+                {msg.role === "assistant" && (
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#f1f3f4", border: "1px solid #e0e0e0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginInlineEnd: 10, alignSelf: "flex-start", marginTop: 6, overflow: "hidden" }}>
+                    <img src="/logo.svg" alt="يمن شات" style={{ width: "100%", height: "100%", objectFit: "cover", padding: 4 }} />
+                  </div>
+                )}
+                <div style={{ maxWidth: "78%" }}>
+                  {msg.role === "assistant" && (
+                    <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#5f6368", marginBottom: 4, marginInlineStart: 2 }}>يمن شات</p>
                   )}
-                </div>
-                <div className="flex flex-col gap-1 max-w-[82%]">
-                  <div className={cn(
-                    "px-5 py-4 rounded-2xl whitespace-pre-wrap leading-relaxed text-[15px]",
-                    msg.role === "user" ? "bg-primary text-white rounded-tr-sm shadow-sm font-medium" : "bg-white border border-gray-200 rounded-tl-sm text-gray-900 shadow-sm",
-                  )}>
+                  <div style={{
+                    padding: msg.role === "user" ? "10px 16px" : "12px 16px",
+                    borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "4px 20px 20px 20px",
+                    background: msg.role === "user" ? "#000" : "#f8f9fa",
+                    color: msg.role === "user" ? "#fff" : "#202124",
+                    fontSize: "0.93rem",
+                    lineHeight: 1.75,
+                    fontWeight: msg.role === "user" ? 500 : 400,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    border: msg.role === "assistant" ? "1px solid #e8eaed" : "none",
+                  }}>
                     {displayContent(msg.content)}
                   </div>
                   {msg.role === "assistant" && (
-                    <VoiceButton text={msg.content} size="xs" className="self-start ms-1" />
+                    <div style={{ marginTop: 4, marginInlineStart: 2 }}>
+                      <VoiceButton text={msg.content} size="xs" className="self-start" />
+                    </div>
                   )}
                 </div>
+                {msg.role === "user" && (
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginInlineStart: 10, alignSelf: "flex-start", marginTop: 6, overflow: "hidden" }}>
+                    {user?.imageUrl
+                      ? <img src={user.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <User style={{ width: 14, height: 14, color: "#fff" }} />}
+                  </div>
+                )}
               </div>
             ))}
             {isStreaming && streamingContent && (
-              <div className="flex gap-3 flex-row">
-                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 border-primary/20 shadow-sm">
-                  <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5" />
+              <div className="flex justify-start" style={{ marginBottom: 4 }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#f1f3f4", border: "1px solid #e0e0e0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginInlineEnd: 10, alignSelf: "flex-start", marginTop: 6, overflow: "hidden" }}>
+                  <img src="/logo.svg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", padding: 4 }} />
                 </div>
-                <div className="px-5 py-4 rounded-2xl max-w-[82%] whitespace-pre-wrap leading-relaxed text-[15px] bg-white border border-primary/30 rounded-tl-sm text-gray-900 shadow-[0_0_10px_rgba(124,58,237,0.08)]">
-                  {streamingContent}
-                  <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse align-middle" />
+                <div style={{ maxWidth: "78%" }}>
+                  <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#5f6368", marginBottom: 4 }}>يمن شات</p>
+                  <div style={{ padding: "12px 16px", borderRadius: "4px 20px 20px 20px", background: "#f8f9fa", color: "#202124", fontSize: "0.93rem", lineHeight: 1.75, border: "1px solid #e8eaed", whiteSpace: "pre-wrap" }}>
+                    {streamingContent}
+                    <span style={{ display: "inline-block", width: 6, height: 15, background: "#000", marginInlineStart: 3, borderRadius: 2, animation: "ks-blink 0.9s ease-in-out infinite", verticalAlign: "middle" }} />
+                  </div>
                 </div>
               </div>
             )}
             {isStreaming && !streamingContent && (
-              <div className="flex gap-3 flex-row">
-                <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border-2 border-primary/20 shadow-sm">
-                  <img src="/logo.svg" alt="يمن شات" className="w-full h-full object-cover bg-primary/10 p-1.5 animate-pulse" />
+              <div className="flex justify-start" style={{ marginBottom: 4 }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#f1f3f4", border: "1px solid #e0e0e0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginInlineEnd: 10, overflow: "hidden" }}>
+                  <img src="/logo.svg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", padding: 4 }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px", background: "#f8f9fa", border: "1px solid #e8eaed", borderRadius: "4px 20px 20px 20px" }}>
+                  {[0,1,2].map(i => (
+                    <span key={i} style={{ width: 7, height: 7, background: "#000", borderRadius: "50%", display: "inline-block", animation: `ks-dot 1.2s ease-in-out ${i*0.25}s infinite` }} />
+                  ))}
                 </div>
               </div>
             )}
@@ -885,7 +908,7 @@ export default function Chat() {
         )}
       </ScrollArea>
 
-      <div className="p-4 md:p-6 bg-gradient-to-t from-[#f8f9fa] via-[#f8f9fa]/95 to-transparent mt-auto relative z-10">
+      <div className="p-4 md:p-6 bg-gradient-to-t from-white via-white/95 to-transparent mt-auto relative z-10">
         <div className="max-w-4xl mx-auto">
           {selectedImage && (
             <div className="mb-3 relative inline-block">
@@ -933,9 +956,10 @@ export default function Chat() {
             onSubmit={handleSubmit}
             dir="ltr"
             className={cn(
-              "relative flex items-end gap-1.5 bg-white border rounded-3xl px-2 py-2 shadow-md transition-all",
-              isBlocked ? "border-red-300 opacity-60 pointer-events-none" : "border-gray-200 focus-within:ring-1 focus-within:ring-primary/40 focus-within:border-primary/60",
+              "relative flex items-end gap-1.5 bg-white border rounded-3xl px-2 py-2 transition-all",
+              isBlocked ? "border-red-300 opacity-60 pointer-events-none" : "border-gray-300 focus-within:border-gray-500 shadow-sm",
             )}
+            style={{ boxShadow: "0 1px 6px rgba(0,0,0,0.1)" }}
           >
             {/* Hidden file inputs */}
             <input type="file" accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleImageSelect} />
@@ -997,7 +1021,11 @@ export default function Chat() {
               <Send className="w-4 h-4 rtl:-scale-x-100" />
             </Button>
           </form>
-          <div className="text-center mt-2 text-xs text-muted-foreground">{t("aiDisclaimer")}</div>
+          <div className="text-center mt-2 text-xs" style={{ color: "#9aa0a6", fontSize: "0.68rem" }}>{t("aiDisclaimer")}</div>
+          <style>{`
+            @keyframes ks-dot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+            @keyframes ks-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+          `}</style>
         </div>
       </div>
       </div>
