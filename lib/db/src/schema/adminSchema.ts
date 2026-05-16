@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, decimal } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, decimal, json } from "drizzle-orm/pg-core";
 
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
@@ -102,6 +102,14 @@ export const publishedSites = pgTable("published_sites", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  endpoint: text("endpoint").notNull().unique(),
+  keys: json("keys").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Rating = typeof ratings.$inferSelect;
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
@@ -111,3 +119,4 @@ export type Ad = typeof ads.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type ServiceBooking = typeof serviceBookings.$inferSelect;
 export type PublishedSite = typeof publishedSites.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

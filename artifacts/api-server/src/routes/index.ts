@@ -10,6 +10,7 @@ import bookingsRouter from "./bookings/index.js";
 import sitesRouter from "./sites";
 import convertRouter from "./convert.js";
 import servicesRouter from "./services/index.js";
+import pushRouter from "./push.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(bookingsRouter);
 router.use(sitesRouter);
 router.use(convertRouter);
 router.use(servicesRouter);
+router.use(pushRouter);
 
 export default router;

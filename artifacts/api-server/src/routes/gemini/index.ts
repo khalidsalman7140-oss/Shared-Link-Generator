@@ -402,16 +402,46 @@ router.post("/gemini/conversations/:id/messages", requireAuth, async (req: Reque
 router.post("/gemini/generate-image", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip;
-  const plan = await getUserPlan(userId);
-  if (plan === "free") {
-    res.status(402).json({ error: "premium_required", message: "توليد الصور يتطلب خطة مدفوعة. اشترك من $2.99/أسبوع." });
-    return;
-  }
   const parsed = GenerateGeminiImageBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { b64_json, mimeType } = await generateImage(parsed.data.prompt);
   await logAuditEvent(userId, "image_generated", `Prompt: ${parsed.data.prompt.slice(0, 120)}`, ip);
   res.json({ b64_json, mimeType });
+});
+
+// ── توليد صورة مجانية عبر Pollinations + حفظ في المحادثة ────────
+router.post("/gemini/generate-image-free", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const { prompt, conversationId } = req.body as { prompt?: string; conversationId?: number };
+  if (!prompt?.trim()) { res.status(400).json({ error: "prompt required" }); return; }
+
+  // Gemini يحسّن وصف الصورة ويترجمه للإنجليزية (مجاني)
+  let enhancedPrompt = prompt;
+  try {
+    const r = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: `Translate this image description to English for AI image generation, make it vivid and detailed (max 100 words, no explanations, only the description): ${prompt}` }] }],
+      config: { maxOutputTokens: 150 },
+    });
+    enhancedPrompt = r.text?.trim() || prompt;
+  } catch { /* استخدم الوصف الأصلي */ }
+
+  const seed = Math.floor(Math.random() * 99999);
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
+
+  // حفظ في المحادثة إذا كان هناك conversationId
+  if (conversationId) {
+    const [conv] = await db.select().from(conversationsTable)
+      .where(and(eq(conversationsTable.id, conversationId), eq(conversationsTable.userId, userId)));
+    if (conv) {
+      await db.insert(messagesTable).values([
+        { conversationId, role: "user", content: prompt },
+        { conversationId, role: "assistant", content: `[GEN_IMAGE:${imageUrl}]` },
+      ]);
+    }
+  }
+
+  res.json({ imageUrl, enhancedPrompt });
 });
 
 router.post("/gemini/web-builder", requireAuth, async (req: Request, res: Response): Promise<void> => {

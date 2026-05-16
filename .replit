@@ -21,3 +21,26 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18241
+externalPort = 3000
+
+[[ports]]
+localPort = 22228
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BHg4ZoUWZTqlrCXTXOsGkQ8yPKfb4h8J4U78VuIXStTnlpQ_02kFvMWI6886ONFnMwCxBsZWnrsY0jsLZr7NLfw"
+VAPID_PRIVATE_KEY = "butW68oMHiZMsbCNhuGGE3Dmq4LYlwjPdHIrGGC9_7Y"
+VAPID_EMAIL = "mailto:khalidsalman7140@gmail.com"

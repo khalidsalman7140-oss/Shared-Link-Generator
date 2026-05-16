@@ -17,6 +17,7 @@ import {
   auditLogs as auditLogsTable,
 } from "@workspace/db";
 import { notifyAdmin, notifyUser } from "../../utils/notify.js";
+import { sendPushToAll } from "../push.js";
 
 const ADMIN_EMAIL = process.env["ADMIN_EMAIL"] ?? "khalidsalman7140@gmail.com";
 
@@ -249,6 +250,8 @@ router.get("/admin/announcements", requireAdmin, async (_req: Request, res: Resp
 router.post("/admin/announcements", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const { title, content } = req.body as { title: string; content: string };
   const [a] = await db.insert(announcementsTable).values({ title, content }).returning();
+  // إرسال Push notification لكل المشتركين
+  sendPushToAll(title, content, "/chat").catch(() => {});
   res.status(201).json(a);
 });
 

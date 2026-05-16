@@ -102,6 +102,33 @@ export default function Chat() {
       .catch(() => {});
   }, []);
 
+  // تسجيل الاشتراك في إشعارات Push
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const VAPID_PUBLIC = "BHg4ZoUWZTqlrCXTXOsGkQ8yPKfb4h8J4U78VuIXStTnlpQ_02kFvMWI6886ONFnMwCxBsZWnrsY0jsLZr7NLfw";
+    const subscribe = async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) return;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: VAPID_PUBLIC,
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub.toJSON()),
+        });
+      } catch { /* ignore */ }
+    };
+    if (Notification.permission === "granted") {
+      void subscribe();
+    } else if (Notification.permission === "default") {
+      Notification.requestPermission().then(p => { if (p === "granted") void subscribe(); });
+    }
+  }, []);
+
   // Speech Recognition (mic input)
   const toggleMic = useCallback(() => {
     if (isListening) {
@@ -249,7 +276,7 @@ export default function Chat() {
 
     // توليد صورة مباشرة إذا كان الطلب لصورة
     if (!selectedImage && isImageRequest(messageContent)) {
-      handleImageGeneration(messageContent);
+      void handleImageGeneration(messageContent);
       return;
     }
 
@@ -303,20 +330,41 @@ export default function Chat() {
   const IMAGE_KEYWORDS = ["صمم صورة","صمم لي صورة","ارسم","أنشئ صورة","اعمل صورة","اصنع صورة","رسم لي","صمم لي","ارسم لي","انشئ صورة","اصنع لي صورة","generate image","create image","draw me","design image","make image"];
   const isImageRequest = (text: string) => IMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
 
-  const handleImageGeneration = (prompt: string) => {
+  const handleImageGeneration = async (prompt: string) => {
     const userMsgId = Date.now();
     setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
     setInput("");
     setIsStreaming(true);
-    const cleanPrompt = prompt.replace(/^(صمم لي صورة|صمم صورة|ارسم لي|ارسم|أنشئ صورة|اعمل صورة|اصنع صورة|صمم لي|generate image|draw me|create image|design image)\s*/i, "").trim() || prompt;
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random()*99999)}`;
-    setTimeout(() => {
-      setLocalMessages(prev => [...prev, { id: Date.now(), role: "assistant", content: `[GEN_IMAGE:${imageUrl}]` }]);
+    const loadingId = userMsgId + 1;
+    setLocalMessages(prev => [...prev, { id: loadingId, role: "assistant", content: "[IMG_LOADING]" }]);
+    try {
+      const r = await fetch("/api/gemini/generate-image-free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, conversationId: conversationId ?? undefined }),
+      });
+      const data = await r.json() as { imageUrl?: string; error?: string };
+      const imageUrl = data.imageUrl ?? `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random()*99999)}`;
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_IMAGE:${imageUrl}]` } : m));
+    } catch {
+      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random()*99999)}`;
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_IMAGE:${fallbackUrl}]` } : m));
+    } finally {
       setIsStreaming(false);
-    }, 300);
+    }
   };
 
   const displayContent = (content: string): ReactNode => {
+    // حالة تحميل الصورة
+    if (content === "[IMG_LOADING]") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          {lang === "ar" ? "جارٍ تصميم الصورة بالذكاء الاصطناعي..." : "Generating image with AI..."}
+        </div>
+      );
+    }
+
     // حالة تحميل الموقع
     if (content === "[GEN_WEBSITE_LOADING]") {
       return (
@@ -447,13 +495,7 @@ export default function Chat() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="relative flex flex-col h-full">
-      {/* خلفية من صورة المستخدم */}
-      {user?.imageUrl && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
-          <img src={user.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.08] blur-2xl scale-110" />
-        </div>
-      )}
-      <div className="relative z-10 flex flex-col h-full bg-[#f8f9fa]/90">
+      <div className="relative z-10 flex flex-col h-full bg-[#f8f9fa]">
 
       {/* Services Marquee */}
       <div className="overflow-hidden border-b border-primary/20 bg-gradient-to-r from-primary/5 via-primary/8 to-primary/5 py-1.5 select-none shrink-0">
