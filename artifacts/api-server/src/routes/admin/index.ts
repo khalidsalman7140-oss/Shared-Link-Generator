@@ -308,6 +308,43 @@ router.patch("/admin/bookings/:id", requireAdmin, async (req: Request, res: Resp
   res.json({ success: true });
 });
 
+router.get("/admin/users/:userId/detail", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.params["userId"] as string;
+  try {
+    const [convs, payments, bookings, plan, usage] = await Promise.all([
+      db.select().from(conversationsTable).where(eq(conversationsTable.userId, userId)).orderBy(desc(conversationsTable.createdAt)).limit(30),
+      db.select().from(paymentRequestsTable).where(eq(paymentRequestsTable.userId, userId)).orderBy(desc(paymentRequestsTable.createdAt)),
+      db.select().from(bookingsTable).where(eq(bookingsTable.userId, userId)).orderBy(desc(bookingsTable.createdAt)),
+      db.select().from(userPlansTable).where(eq(userPlansTable.userId, userId)),
+      db.select().from(userUsageTable).where(eq(userUsageTable.userId, userId)).orderBy(desc(userUsageTable.date)).limit(7),
+    ]);
+    const totalMessages = await db.select({ c: sql<number>`count(*)` }).from(messagesTable)
+      .where(sql`conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`);
+    res.json({
+      conversations: convs, payments, bookings,
+      plan: plan[0] ?? null,
+      recentUsage: usage,
+      totalMessages: Number(totalMessages[0]?.c ?? 0),
+    });
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+router.get("/admin/live-events", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const [pending, recentPayments, recentConvs] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(paymentRequestsTable).where(eq(paymentRequestsTable.status, "pending")),
+    db.select().from(paymentRequestsTable).where(eq(paymentRequestsTable.status, "pending")).orderBy(desc(paymentRequestsTable.createdAt)).limit(5),
+    db.select().from(conversationsTable).orderBy(desc(conversationsTable.createdAt)).limit(3),
+  ]);
+  res.json({
+    pendingCount: Number(pending[0]?.count ?? 0),
+    recentPayments,
+    recentConvs,
+    ts: Date.now(),
+  });
+});
+
 router.get("/admin/recent-activity", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const recentConvs = await db.select().from(conversationsTable).orderBy(desc(conversationsTable.createdAt)).limit(10);
   const recentPayments = await db.select().from(paymentRequestsTable).where(eq(paymentRequestsTable.status, "pending")).orderBy(desc(paymentRequestsTable.createdAt)).limit(5);
