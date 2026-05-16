@@ -113,6 +113,34 @@ const CATS = ["الكل", ...Array.from(new Set(AXES.map(a => a.cat)))];
 
 const ADMIN_EMAIL = "khalidsalman7140@gmail.com";
 
+/* ─── مفكرة عامة مستقلة تحفظ في localStorage ─── */
+function GeneralNotepad() {
+  const KEY = "ks_admin_general_notepad";
+  const [text, setText] = useState(() => localStorage.getItem(KEY) ?? "");
+  const [saved, setSaved] = useState(false);
+  const save = () => {
+    localStorage.setItem(KEY, text);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+  return (
+    <div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        rows={5}
+        placeholder={"أفكاري وخططي القادمة...\n- ميزة جديدة: ...\n- تواصل مع مستخدم X بشأن ...\n- مراجعة الاشتراكات بتاريخ ..."}
+        style={{ width: "100%", background: "#fff", border: "1.5px solid #e2e8f0", color: "#000", padding: "10px 13px", borderRadius: 10, fontSize: "0.8rem", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.75, minHeight: 110 }}
+      />
+      <button
+        onClick={save}
+        style={{ marginTop: 8, background: saved ? "#22c55e" : "#000", color: "#fff", border: "none", borderRadius: 9, padding: "8px 20px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", transition: "background 0.2s" }}>
+        {saved ? "✓ تم الحفظ" : "حفظ المفكرة"}
+      </button>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════ */
 export default function OwnerPortal() {
   const { user } = useUser();
@@ -145,6 +173,17 @@ export default function OwnerPortal() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  /* admin notes per user — persisted in localStorage */
+  const [noteText, setNoteText] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
+  const getNoteKey = (uid: string) => `ks_admin_note_${uid}`;
+  const loadNote = (uid: string) => localStorage.getItem(getNoteKey(uid)) ?? "";
+  const saveNote = (uid: string, text: string) => {
+    localStorage.setItem(getNoteKey(uid), text);
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2000);
+  };
 
   /* reviews */
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -246,6 +285,8 @@ export default function OwnerPortal() {
     setSelectedUser(u);
     setUserDetail(null);
     setDetailLoading(true);
+    setNoteText(loadNote(u.userId));
+    setNoteSaved(false);
     try {
       const r = await fetch(`/api/admin/users/${u.userId}/detail`);
       if (r.ok) setUserDetail(await r.json() as UserDetail);
@@ -669,6 +710,46 @@ export default function OwnerPortal() {
                     </div>
                   )}
                 </div>
+
+                {/* ══ FUTURE DEVELOPMENT SLOTS ══ */}
+                <div style={{ marginTop: 28 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+                    <span style={{ color: "#9ca3af", fontSize: "0.72rem", fontWeight: 800, whiteSpace: "nowrap", letterSpacing: "0.05em" }}>🚀 خانات التطوير المستقبلي</span>
+                    <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    {[
+                      { icon: "📊", title: "تحليلات متقدمة",      desc: "رسوم بيانية تفاعلية للإيرادات والنشاط اليومي", color: "#7c3aed" },
+                      { icon: "🤖", title: "مساعد القرار الذكي",   desc: "توصيات آلية بترقية المستخدمين أو تجديد عروضهم", color: "#0891b2" },
+                      { icon: "📧", title: "إشعارات البريد",       desc: "إرسال تلقائي لإيميل التفعيل عند قبول الطلب",   color: "#059669" },
+                      { icon: "🏷️", title: "أكواد الخصم",         desc: "توليد كوبونات خصم لحملات التسويق",             color: "#d97706" },
+                      { icon: "📅", title: "جدول المواعيد",        desc: "تقويم مدمج لمتابعة طلبات التصميم والتسليم",    color: "#dc2626" },
+                      { icon: "💬", title: "رسائل مباشرة",        desc: "دردشة فورية بين خالد وكل مستخدم داخل اللوحة",  color: "#f59e0b" },
+                    ].map((slot, i) => (
+                      <div key={i} style={{ background: "#fafafa", border: "2px dashed #d1d5db", borderRadius: 13, padding: "13px 12px", position: "relative" }}>
+                        <div style={{ position: "absolute", top: 8, left: 8, background: "#f1f5f9", color: "#9ca3af", fontSize: "0.55rem", fontWeight: 800, padding: "2px 7px", borderRadius: 20, letterSpacing: "0.06em" }}>
+                          قريباً
+                        </div>
+                        <div style={{ display: "flex", gap: 9, marginTop: 8 }}>
+                          <span style={{ fontSize: "1.4rem", flexShrink: 0 }}>{slot.icon}</span>
+                          <div>
+                            <p style={{ fontWeight: 800, fontSize: "0.78rem", color: slot.color, margin: "0 0 3px" }}>{slot.title}</p>
+                            <p style={{ fontSize: "0.65rem", color: "#9ca3af", margin: 0, lineHeight: 1.4 }}>{slot.desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* admin notepad — general */}
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "14px" }}>
+                    <p style={{ fontWeight: 900, fontSize: "0.85rem", color: "#000", margin: "0 0 10px", display: "flex", alignItems: "center", gap: 7 }}>
+                      🗒️ دفتر ملاحظاتي العام
+                      <span style={{ fontSize: "0.6rem", color: "#9ca3af", fontWeight: 600, marginRight: "auto" }}>تُحفظ في جهازك</span>
+                    </p>
+                    <GeneralNotepad />
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -913,6 +994,35 @@ export default function OwnerPortal() {
                   )}
                 </>
               ) : null}
+
+              {/* ── Admin Notes ── always visible when user selected ── */}
+              {selectedUser && (
+                <div style={{ marginTop: 20, padding: "14px", background: "#fffbeb", border: "2px solid #f59e0b", borderRadius: 14 }}>
+                  <p style={{ fontWeight: 900, fontSize: "0.85rem", color: "#92400e", margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                    📝 ملاحظاتي على هذا المستخدم
+                    <span style={{ fontSize: "0.62rem", color: "#b45309", fontWeight: 600, marginRight: "auto" }}>تُحفظ تلقائياً في جهازك</span>
+                  </p>
+                  <textarea
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                    rows={4}
+                    placeholder={`مثال: عميل مهم — طلب اشتراك شهري بتاريخ ...\nتمت الموافقة، يحتاج متابعة في ...\nملاحظات للتواصل: ...`}
+                    style={{ width: "100%", background: "#fff", border: "1.5px solid #fcd34d", color: "#000", padding: "10px 12px", borderRadius: 10, fontSize: "0.8rem", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.7, minHeight: 90 }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button
+                      onClick={() => saveNote(selectedUser.userId, noteText)}
+                      style={{ flex: 1, background: noteSaved ? "#22c55e" : "#f59e0b", color: "#fff", border: "none", borderRadius: 9, padding: "8px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", transition: "background 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      {noteSaved ? <><CheckCircle2 style={{ width: 13, height: 13 }} />تم الحفظ ✓</> : <><CheckCheck style={{ width: 13, height: 13 }} />حفظ الملاحظة</>}
+                    </button>
+                    <button
+                      onClick={() => { setNoteText(""); saveNote(selectedUser.userId, ""); }}
+                      style={{ background: "#f1f5f9", color: "#6b7280", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "8px 12px", fontWeight: 600, fontSize: "0.72rem", cursor: "pointer" }}>
+                      مسح
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
