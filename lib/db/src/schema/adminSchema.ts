@@ -110,6 +110,17 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const otpCodes = pgTable("otp_codes", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  userId: text("user_id"),
+  code: text("code").notNull(),
+  purpose: text("purpose").notNull().default("verify"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Rating = typeof ratings.$inferSelect;
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type PaymentRequest = typeof paymentRequests.$inferSelect;
@@ -120,3 +131,4 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type ServiceBooking = typeof serviceBookings.$inferSelect;
 export type PublishedSite = typeof publishedSites.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type OtpCode = typeof otpCodes.$inferSelect;

@@ -8,7 +8,7 @@ import {
   BarChart3, Heart, Stethoscope, Car, UtensilsCrossed, AlertTriangle,
   Home, Copy, CheckCheck, RefreshCw, X, ChevronRight, MessageSquare,
   CalendarCheck, Receipt, TrendingUp, Activity, UserCheck, Clock,
-  CheckCircle2, XCircle, Filter,
+  CheckCircle2, XCircle, Filter, Eye, KeyRound, Cpu, Database, Radio,
 } from "lucide-react";
 
 /* ─────────────────────── types ─────────────────────── */
@@ -27,6 +27,7 @@ const TABS = [
   { id: "reviews", label: "التقييمات",             icon: Star },
   { id: "contact", label: "التواصل",               icon: MessageCircle },
   { id: "deep",    label: "الخدمات العميقة",        icon: Zap },
+  { id: "control", label: "غرفة التحكم",           icon: Cpu },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -391,6 +392,301 @@ function GeneralNotepad() {
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   ControlRoomTab — غرفة التحكم والمراقبة الخلفية
+══════════════════════════════════════════════════════ */
+interface CrOverview { totalMessages:number; totalConversations:number; totalOtpsSent:number; totalAuditEvents:number; recentAudit:CrAudit[]; ts:number; }
+interface CrMsg { msgId:number; role:string; contentPreview:string; msgCreatedAt:string; convId:number; convTitle:string|null; userId:string|null; userEmail:string; }
+interface CrOtp { id:number; email:string; userId:string|null; code:string; purpose:string; expiresAt:string; usedAt:string|null; createdAt:string; }
+interface CrAudit { id:number; userId:string|null; userEmail:string|null; action:string; details:string|null; ipAddress:string|null; createdAt:string; }
+
+const ACTION_LABELS: Record<string,{label:string;color:string}> = {
+  otp_sent:     { label:"🔑 إرسال رمز", color:"#7c3aed" },
+  otp_verified: { label:"✅ تحقق ناجح", color:"#059669" },
+  otp_failed:   { label:"❌ رمز خاطئ",  color:"#dc2626" },
+  login:        { label:"🔐 دخول",       color:"#2563eb" },
+  chat:         { label:"💬 محادثة",     color:"#0891b2" },
+};
+
+function ControlRoomTab() {
+  const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity">("overview");
+  const [overview, setOverview] = useState<CrOverview|null>(null);
+  const [msgs, setMsgs] = useState<CrMsg[]>([]);
+  const [otps, setOtps] = useState<CrOtp[]>([]);
+  const [activity, setActivity] = useState<CrAudit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [msgSearch, setMsgSearch] = useState("");
+  const [otpSearch, setOtpSearch] = useState("");
+  const [actSearch, setActSearch] = useState("");
+  const [revealOtp, setRevealOtp] = useState<Set<number>>(new Set());
+
+  const load = async (section: typeof sub) => {
+    setLoading(true);
+    try {
+      if (section === "overview") {
+        const r = await fetch("/api/admin/control-room/overview");
+        if (r.ok) setOverview(await r.json() as CrOverview);
+      } else if (section === "messages") {
+        const r = await fetch("/api/admin/control-room/messages?limit=300");
+        if (r.ok) setMsgs(await r.json() as CrMsg[]);
+      } else if (section === "otps") {
+        const r = await fetch("/api/admin/control-room/otps");
+        if (r.ok) setOtps(await r.json() as CrOtp[]);
+      } else {
+        const r = await fetch("/api/admin/control-room/activity?limit=300");
+        if (r.ok) setActivity(await r.json() as CrAudit[]);
+      }
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(sub); }, [sub]);
+
+  const fmt = (d:string) => new Date(d).toLocaleString("ar-EG",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
+
+  const SUB_TABS = [
+    { id:"overview",  label:"📊 نظرة عامة", icon: BarChart3 },
+    { id:"messages",  label:"💬 الرسائل",    icon: MessageSquare },
+    { id:"otps",      label:"🔑 رموز التحقق",icon: KeyRound },
+    { id:"activity",  label:"📋 سجل التحركات",icon: Activity },
+  ] as const;
+
+  const cell: React.CSSProperties = { padding:"10px 12px", borderBottom:"1px solid #f1f5f9", fontSize:"0.75rem", color:"#000", verticalAlign:"top" };
+  const th: React.CSSProperties = { ...cell, fontWeight:900, background:"#000", color:"#fff", fontSize:"0.72rem" };
+
+  return (
+    <div style={{ padding:"0 0 40px" }}>
+      {/* header */}
+      <div style={{ background:"#000", borderRadius:14, padding:"16px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ width:42, height:42, borderRadius:10, background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Cpu style={{ width:22, height:22, color:"#fff" }} />
+        </div>
+        <div>
+          <p style={{ color:"#fff", fontWeight:900, fontSize:"1rem", margin:0 }}>غرفة التحكم الخلفية</p>
+          <p style={{ color:"rgba(255,255,255,0.6)", fontSize:"0.72rem", margin:0 }}>مراقبة لحظية لكل ما يحدث خلف كواليس يمن شات</p>
+        </div>
+        <button onClick={() => load(sub)} style={{ marginRight:"auto", background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", borderRadius:8, padding:"7px 14px", fontSize:"0.72rem", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+          <RefreshCw style={{ width:12, height:12 }} />تحديث
+        </button>
+      </div>
+
+      {/* sub-tabs */}
+      <div style={{ display:"flex", gap:6, marginBottom:16, overflowX:"auto" }}>
+        {SUB_TABS.map(t => {
+          const Icon = t.icon;
+          const active = sub === t.id;
+          return (
+            <button key={t.id} onClick={() => setSub(t.id as typeof sub)}
+              style={{ flexShrink:0, background:active?"#000":"#f8fafc", color:active?"#fff":"#374151", border:`1.5px solid ${active?"#000":"#e2e8f0"}`, borderRadius:10, padding:"9px 14px", fontSize:"0.78rem", fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
+              <Icon style={{ width:13, height:13 }} />{t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", border:"3px solid #000", borderTopColor:"transparent", animation:"ospin 0.7s linear infinite" }} />
+        </div>
+      )}
+
+      {!loading && sub === "overview" && overview && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {/* stats grid */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10 }}>
+            {[
+              { label:"إجمالي الرسائل",    val:overview.totalMessages,      icon:"💬", color:"#7c3aed" },
+              { label:"إجمالي المحادثات",  val:overview.totalConversations,  icon:"🗨️", color:"#2563eb" },
+              { label:"رموز OTP مُرسلة",  val:overview.totalOtpsSent,        icon:"🔑", color:"#059669" },
+              { label:"أحداث مُسجّلة",    val:overview.totalAuditEvents,    icon:"📋", color:"#f59e0b" },
+            ].map((s,i) => (
+              <div key={i} style={{ background:"#fff", border:`2px solid ${s.color}20`, borderRadius:14, padding:"18px 14px", textAlign:"center" }}>
+                <p style={{ fontSize:"2rem", margin:"0 0 4px" }}>{s.icon}</p>
+                <p style={{ fontWeight:900, fontSize:"1.8rem", color:s.color, margin:"0 0 3px", lineHeight:1 }}>{s.val.toLocaleString()}</p>
+                <p style={{ fontSize:"0.68rem", color:"#6b7280", margin:0, fontWeight:600 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+          {/* recent audit */}
+          <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:14, padding:16 }}>
+            <p style={{ fontWeight:900, fontSize:"0.88rem", color:"#000", margin:"0 0 12px", display:"flex", alignItems:"center", gap:6 }}>
+              <Radio style={{ width:14, height:14, color:"#ef4444" }} />آخر الأحداث الحية
+            </p>
+            {overview.recentAudit.map(a => (
+              <div key={a.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"8px 0", borderBottom:"1px solid #f1f5f9" }}>
+                <span style={{ fontSize:"0.8rem", background:"#f8fafc", borderRadius:8, padding:"3px 8px", flexShrink:0 }}>
+                  {ACTION_LABELS[a.action]?.label ?? `⚡ ${a.action}`}
+                </span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:"0.74rem", color:"#000", margin:0, fontWeight:700 }}>{a.userEmail ?? a.userId ?? "—"}</p>
+                  {a.details && <p style={{ fontSize:"0.68rem", color:"#6b7280", margin:"2px 0 0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.details}</p>}
+                </div>
+                <p style={{ fontSize:"0.62rem", color:"#9ca3af", flexShrink:0, margin:0 }}>{fmt(a.createdAt)}</p>
+              </div>
+            ))}
+            {overview.recentAudit.length === 0 && <p style={{ color:"#9ca3af", fontSize:"0.78rem", textAlign:"center", padding:"20px 0" }}>لا توجد أحداث حتى الآن</p>}
+          </div>
+        </div>
+      )}
+
+      {!loading && sub === "messages" && (
+        <div>
+          <div style={{ marginBottom:12, display:"flex", gap:8, alignItems:"center" }}>
+            <div style={{ flex:1, position:"relative" }}>
+              <Search style={{ width:13, height:13, position:"absolute", top:"50%", transform:"translateY(-50%)", right:11, color:"#9ca3af" }} />
+              <input value={msgSearch} onChange={e=>setMsgSearch(e.target.value)}
+                placeholder="ابحث في الرسائل أو البريد أو المستخدم..."
+                style={{ width:"100%", background:"#fff", border:"1.5px solid #e2e8f0", color:"#000", padding:"9px 11px 9px 32px", borderRadius:10, fontSize:"0.8rem", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <span style={{ fontSize:"0.7rem", color:"#6b7280", flexShrink:0, fontWeight:700 }}>{msgs.filter(m=>!msgSearch||(m.contentPreview+m.userEmail+m.userId).toLowerCase().includes(msgSearch.toLowerCase())).length} رسالة</span>
+          </div>
+          <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:14, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>المستخدم / البريد</th>
+                  <th style={th}>الدور</th>
+                  <th style={th}>محتوى الرسالة</th>
+                  <th style={th}>التاريخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {msgs.filter(m=>!msgSearch||(m.contentPreview+m.userEmail).toLowerCase().includes(msgSearch.toLowerCase())).slice(0,200).map(m => (
+                  <tr key={m.msgId} style={{ background:"#fff" }}>
+                    <td style={cell}>
+                      <p style={{ margin:0, fontWeight:700, fontSize:"0.74rem" }}>{m.userEmail}</p>
+                      <p style={{ margin:"2px 0 0", fontSize:"0.62rem", color:"#9ca3af" }}>#{m.convId} — {m.convTitle?.slice(0,30) ?? "—"}</p>
+                    </td>
+                    <td style={{ ...cell, textAlign:"center" }}>
+                      <span style={{ background: m.role==="user"?"#f0f4ff":"#f0fdf4", color:m.role==="user"?"#2563eb":"#059669", borderRadius:20, padding:"2px 8px", fontSize:"0.65rem", fontWeight:800 }}>
+                        {m.role==="user"?"👤 مستخدم":"🤖 وكيل"}
+                      </span>
+                    </td>
+                    <td style={{ ...cell, maxWidth:260 }}>
+                      <p style={{ margin:0, fontSize:"0.73rem", lineHeight:1.5, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{m.contentPreview}</p>
+                    </td>
+                    <td style={{ ...cell, whiteSpace:"nowrap" }}>{fmt(m.msgCreatedAt)}</td>
+                  </tr>
+                ))}
+                {msgs.length === 0 && (
+                  <tr><td colSpan={4} style={{ ...cell, textAlign:"center", color:"#9ca3af", padding:30 }}>لا توجد رسائل</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && sub === "otps" && (
+        <div>
+          <div style={{ marginBottom:12, padding:"12px 14px", background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:12, display:"flex", gap:10, alignItems:"flex-start" }}>
+            <span style={{ fontSize:"1.1rem" }}>🔐</span>
+            <p style={{ margin:0, fontSize:"0.78rem", color:"#92400e", fontWeight:700, lineHeight:1.6 }}>
+              هذه الرموز حساسة جداً — تُعرض للإدارة فقط لأغراض التوثيق الأمني. تأكد من أن لوحة الإدارة آمنة.
+            </p>
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <input value={otpSearch} onChange={e=>setOtpSearch(e.target.value)}
+              placeholder="ابحث بالبريد أو المستخدم..."
+              style={{ width:"100%", background:"#fff", border:"1.5px solid #e2e8f0", color:"#000", padding:"9px 13px", borderRadius:10, fontSize:"0.8rem", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {otps.filter(o=>!otpSearch||(o.email+(o.userId??"")+o.purpose).toLowerCase().includes(otpSearch.toLowerCase())).map(o => {
+              const expired = new Date(o.expiresAt) < new Date();
+              const used = !!o.usedAt;
+              const visible = revealOtp.has(o.id);
+              return (
+                <div key={o.id} style={{ background:"#fff", border:`1.5px solid ${used?"#d1fae5":expired?"#fee2e2":"#e2e8f0"}`, borderRadius:12, padding:"12px 14px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontWeight:900, fontSize:"0.83rem", color:"#000", margin:"0 0 2px" }}>{o.email}</p>
+                      <p style={{ fontSize:"0.65rem", color:"#6b7280", margin:0 }}>
+                        الغرض: {o.purpose} &nbsp;|&nbsp; {fmt(o.createdAt)}
+                        {o.userId && <> &nbsp;|&nbsp; ID: {o.userId.slice(0,14)}...</>}
+                      </p>
+                    </div>
+                    <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+                      <span style={{ background:used?"#d1fae5":expired?"#fee2e2":"#eff6ff", color:used?"#059669":expired?"#dc2626":"#2563eb", borderRadius:20, padding:"2px 9px", fontSize:"0.65rem", fontWeight:800 }}>
+                        {used?"✅ مُستخدم":expired?"⏰ منتهي":"⚡ نشط"}
+                      </span>
+                      <button onClick={() => {
+                        const ns = new Set(revealOtp);
+                        visible ? ns.delete(o.id) : ns.add(o.id);
+                        setRevealOtp(ns);
+                      }} style={{ background:"#000", color:"#fff", border:"none", borderRadius:8, padding:"4px 10px", fontSize:"0.68rem", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+                        <Eye style={{ width:11, height:11 }} />{visible?"إخفاء":"عرض"}
+                      </button>
+                    </div>
+                  </div>
+                  {visible && (
+                    <div style={{ marginTop:10, background:"#000", borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                      <p style={{ fontFamily:"monospace", fontSize:"1.6rem", fontWeight:900, color:"#facc15", margin:0, letterSpacing:6 }}>{o.code}</p>
+                      <div style={{ textAlign:"left" }}>
+                        <p style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.5)", margin:0 }}>يصلح حتى</p>
+                        <p style={{ fontSize:"0.68rem", color:"rgba(255,255,255,0.8)", margin:0 }}>{fmt(o.expiresAt)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {otps.length === 0 && <div style={{ textAlign:"center", padding:40, color:"#9ca3af", fontSize:"0.8rem" }}>لم يُرسَل أي رمز OTP بعد</div>}
+          </div>
+        </div>
+      )}
+
+      {!loading && sub === "activity" && (
+        <div>
+          <div style={{ marginBottom:12 }}>
+            <input value={actSearch} onChange={e=>setActSearch(e.target.value)}
+              placeholder="ابحث بالبريد أو الإجراء أو التفاصيل..."
+              style={{ width:"100%", background:"#fff", border:"1.5px solid #e2e8f0", color:"#000", padding:"9px 13px", borderRadius:10, fontSize:"0.8rem", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+          </div>
+          <div style={{ background:"#fff", border:"1.5px solid #e2e8f0", borderRadius:14, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>البريد / المستخدم</th>
+                  <th style={th}>الإجراء</th>
+                  <th style={th}>التفاصيل</th>
+                  <th style={th}>عنوان IP</th>
+                  <th style={th}>التاريخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activity.filter(a=>!actSearch||(a.userEmail+a.action+(a.details??"")+( a.ipAddress??"")+( a.userId??"")).toLowerCase().includes(actSearch.toLowerCase())).slice(0,300).map(a => {
+                  const info = ACTION_LABELS[a.action];
+                  return (
+                    <tr key={a.id} style={{ background:"#fff" }}>
+                      <td style={cell}>
+                        <p style={{ margin:0, fontWeight:700, fontSize:"0.74rem" }}>{a.userEmail ?? "—"}</p>
+                        {a.userId && <p style={{ margin:"2px 0 0", fontSize:"0.6rem", color:"#9ca3af" }}>{a.userId.slice(0,18)}...</p>}
+                      </td>
+                      <td style={{ ...cell, textAlign:"center" }}>
+                        <span style={{ background:`${info?.color??"#6b7280"}15`, color:info?.color??"#6b7280", borderRadius:20, padding:"2px 8px", fontSize:"0.65rem", fontWeight:800, whiteSpace:"nowrap" }}>
+                          {info?.label ?? a.action}
+                        </span>
+                      </td>
+                      <td style={{ ...cell, maxWidth:220 }}>
+                        <p style={{ margin:0, fontSize:"0.7rem", lineHeight:1.5, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{a.details ?? "—"}</p>
+                      </td>
+                      <td style={{ ...cell, fontFamily:"monospace", fontSize:"0.65rem", color:"#6b7280" }}>{a.ipAddress ?? "—"}</td>
+                      <td style={{ ...cell, whiteSpace:"nowrap", fontSize:"0.65rem" }}>{fmt(a.createdAt)}</td>
+                    </tr>
+                  );
+                })}
+                {activity.length === 0 && (
+                  <tr><td colSpan={5} style={{ ...cell, textAlign:"center", color:"#9ca3af", padding:30 }}>لا يوجد نشاط مسجّل</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════ */
 export default function OwnerPortal() {
   const { user } = useUser();
@@ -648,6 +944,9 @@ export default function OwnerPortal() {
     return matchQ && matchStatus;
   });
   const filteredAxes = catFilter === "الكل" ? AXES : AXES.filter(a => a.cat === catFilter);
+
+  /* ══════════════════════════ CONTROL ROOM TAB ══════════════════════════ */
+  // All state is inside the component below — declared here so it's scoped correctly.
 
   /* ── color helpers ── */
   const planBadge = (plan: string) => (
@@ -1158,6 +1457,9 @@ export default function OwnerPortal() {
 
         {/* ══════════ TAB: DEEP SERVICES ══════════ */}
         {tab === "deep" && <DeepServicesAdminTab />}
+
+        {/* ══════════ TAB: CONTROL ROOM ══════════ */}
+        {tab === "control" && <ControlRoomTab />}
 
       </div>
 

@@ -17,12 +17,14 @@ import docsRouter from "./docs.js";
 import messagesRouter from "./messages/index.js";
 import deepServicesRouter from "./deep-services/index.js";
 import aiToolsRouter from "./ai-tools/index.js";
+import otpRouter from "./otp.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(geminiRouter);
 router.use(adminRouter);
+router.use(otpRouter);
 router.use(ratingsRouter);
 router.use(paymentsRouter);
 router.use(adsRouter);

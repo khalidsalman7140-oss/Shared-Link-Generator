@@ -15,6 +15,7 @@ import {
   ads as adsTable,
   serviceBookings as bookingsTable,
   auditLogs as auditLogsTable,
+  otpCodes as otpCodesTable,
 } from "@workspace/db";
 import { notifyAdmin, notifyUser } from "../../utils/notify.js";
 import { sendPushToAll } from "../push.js";
@@ -377,6 +378,95 @@ router.delete("/admin/fraud/:id", requireAdmin, async (req: Request, res: Respon
   const id = parseInt(req.params["id"] as string);
   await db.delete(emailFingerprintsTable).where(eq(emailFingerprintsTable.id, id));
   res.json({ success: true });
+});
+
+/* ══════════════════════════════════════════════════════
+   غرفة التحكم الخلفية — Control Room
+══════════════════════════════════════════════════════ */
+
+router.get("/admin/control-room/overview", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const [totalMsgs, totalConvs, totalOtps, totalAudit, recentAudit] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(messagesTable),
+      db.select({ count: sql<number>`count(*)` }).from(conversationsTable),
+      db.select({ count: sql<number>`count(*)` }).from(otpCodesTable),
+      db.select({ count: sql<number>`count(*)` }).from(auditLogsTable),
+      db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(5),
+    ]);
+    res.json({
+      totalMessages: Number(totalMsgs[0]?.count ?? 0),
+      totalConversations: Number(totalConvs[0]?.count ?? 0),
+      totalOtpsSent: Number(totalOtps[0]?.count ?? 0),
+      totalAuditEvents: Number(totalAudit[0]?.count ?? 0),
+      recentAudit,
+      ts: Date.now(),
+    });
+  } catch { res.status(500).json({ error: "Failed" }); }
+});
+
+router.get("/admin/control-room/messages", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt(String(req.query["limit"] ?? "200")), 500);
+    const offset = parseInt(String(req.query["offset"] ?? "0"));
+    const rows = await db
+      .select({
+        msgId: messagesTable.id,
+        role: messagesTable.role,
+        content: messagesTable.content,
+        msgCreatedAt: messagesTable.createdAt,
+        convId: conversationsTable.id,
+        convTitle: conversationsTable.title,
+        userId: conversationsTable.userId,
+      })
+      .from(messagesTable)
+      .innerJoin(conversationsTable, eq(messagesTable.conversationId, conversationsTable.id))
+      .orderBy(desc(messagesTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))] as string[];
+    const emailMap: Record<string, string> = {};
+    for (const uid of userIds.slice(0, 50)) {
+      try {
+        const u = await clerkClient.users.getUser(uid);
+        emailMap[uid] = u.emailAddresses?.[0]?.emailAddress ?? "—";
+      } catch { emailMap[uid] = "—"; }
+    }
+
+    const enriched = rows.map(r => ({
+      ...r,
+      userEmail: r.userId ? (emailMap[r.userId] ?? "—") : "—",
+      contentPreview: r.content.slice(0, 300),
+    }));
+    res.json(enriched);
+  } catch { res.status(500).json({ error: "Failed" }); }
+});
+
+router.get("/admin/control-room/otps", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const list = await db.select().from(otpCodesTable).orderBy(desc(otpCodesTable.createdAt)).limit(500);
+    res.json(list);
+  } catch { res.status(500).json({ error: "Failed" }); }
+});
+
+router.get("/admin/control-room/activity", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt(String(req.query["limit"] ?? "300")), 500);
+    const list = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(limit);
+    res.json(list);
+  } catch { res.status(500).json({ error: "Failed" }); }
+});
+
+router.get("/admin/control-room/user-messages/:userId", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.params["userId"] as string;
+    const convs = await db.select().from(conversationsTable).where(eq(conversationsTable.userId, userId)).orderBy(desc(conversationsTable.createdAt)).limit(50);
+    const result = await Promise.all(convs.map(async (c) => {
+      const msgs = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, c.id)).orderBy(messagesTable.createdAt);
+      return { ...c, messages: msgs };
+    }));
+    res.json(result);
+  } catch { res.status(500).json({ error: "Failed" }); }
 });
 
 export default router;
