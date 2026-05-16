@@ -1,5 +1,6 @@
-const CACHE = "ks-agent-v2";
-const SHELL = ["/", "/manifest.json"];
+const CACHE = "ks-agent-v3";
+const SHELL = ["/", "/manifest.json", "/logo.svg"];
+const STATIC_EXTS = [".js", ".css", ".woff", ".woff2", ".ttf", ".svg", ".png", ".jpg", ".ico", ".webp"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -18,22 +19,60 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
-  e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        if (res.ok && !url.pathname.startsWith("/api")) {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, clone));
-        }
-        return res;
+
+  const isStatic = STATIC_EXTS.some(ext => url.pathname.endsWith(ext));
+
+  if (isStatic) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
+          if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+          return res;
+        });
       })
-      .catch(() => caches.match(e.request).then((r) => r ?? new Response("offline", { status: 503 })))
-  );
+    );
+  } else {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+          return res;
+        })
+        .catch(() =>
+          caches.match(e.request).then((r) => {
+            if (r) return r;
+            if (e.request.headers.get("Accept")?.includes("text/html")) return caches.match("/");
+            return new Response("offline", { status: 503 });
+          })
+        )
+    );
+  }
 });
 
 self.addEventListener("message", (e) => {
   if (e.data === "SKIP_WAITING") self.skipWaiting();
+  if (e.data?.type === "CACHE_CONVERSATION" && e.data.conversation) {
+    openIDB().then((db) => {
+      const tx = db.transaction("cached_conversations", "readwrite");
+      tx.objectStore("cached_conversations").put(e.data.conversation);
+    }).catch(() => {});
+  }
 });
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("ks-agent-offline", 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("cached_conversations")) {
+        db.createObjectStore("cached_conversations", { keyPath: "id" });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 // ── إشعارات Push ────────────────────────────────────────────────
 self.addEventListener("push", (e) => {

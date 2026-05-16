@@ -11,6 +11,9 @@ import sitesRouter from "./sites";
 import convertRouter from "./convert.js";
 import servicesRouter from "./services/index.js";
 import pushRouter from "./push.js";
+import logosRouter from "./logos.js";
+import booksRouter from "./books.js";
+import docsRouter from "./docs.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +29,8 @@ router.use(sitesRouter);
 router.use(convertRouter);
 router.use(servicesRouter);
 router.use(pushRouter);
+router.use(logosRouter);
+router.use(booksRouter);
+router.use(docsRouter);
 
 export default router;

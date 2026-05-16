@@ -13,12 +13,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Send, Camera, Bot, User, Sparkles, X, Loader2,
   Zap, Ban, Crown, Brain, Mic, MicOff, Bell, Trophy, Plus,
+  FileText, BookOpen, Palette, Download,
 } from "lucide-react";
 import { VoiceButton } from "@/components/VoiceButton";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface Announcement { id: number; title: string; content: string; isActive: boolean; }
+interface BookItem { id: number; title: string; authors: { name: string }[]; formats: Record<string, string>; download_count: number; }
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -61,6 +63,9 @@ export default function Chat() {
   const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<number>>(new Set());
   const [websiteCache, setWebsiteCache] = useState<Record<string, string>>({});
   const [expandedCode, setExpandedCode] = useState<Record<string, boolean>>({});
+  const [logoCache, setLogoCache] = useState<Record<string, string>>({});
+  const [booksCache, setBooksCache] = useState<Record<string, BookItem[]>>({});
+  const [docCache, setDocCache] = useState<Record<string, { base64: string; filename: string }>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
@@ -280,6 +285,24 @@ export default function Chat() {
       return;
     }
 
+    // توليد شعار SVG مجاني
+    if (!selectedImage && isLogoRequest(messageContent)) {
+      void handleLogoGeneration(messageContent);
+      return;
+    }
+
+    // البحث في الكتب المجانية
+    if (!selectedImage && isBooksRequest(messageContent)) {
+      void handleBooksSearch(messageContent);
+      return;
+    }
+
+    // توليد وثيقة Word
+    if (!selectedImage && isDocRequest(messageContent)) {
+      void handleDocGeneration(messageContent);
+      return;
+    }
+
     if (!conversationId) {
       createMutation.mutate(
         { data: { title: messageContent.slice(0, 60) || t("newChat") } },
@@ -329,6 +352,98 @@ export default function Chat() {
   // كلمات كشف طلبات توليد الصور
   const IMAGE_KEYWORDS = ["صمم صورة","صمم لي صورة","ارسم","أنشئ صورة","اعمل صورة","اصنع صورة","رسم لي","صمم لي","ارسم لي","انشئ صورة","اصنع لي صورة","generate image","create image","draw me","design image","make image"];
   const isImageRequest = (text: string) => IMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  // كلمات كشف طلبات الشعارات
+  const LOGO_KEYWORDS = ["صمم شعار","اعمل شعار","اصنع شعار","أنشئ شعار","انشئ شعار","شعار احترافي","شعار لـ","شعار لشركة","شعار لمحل","شعار لمتجر","logo احترافي","صمم لوغو","اعمل لوغو","اصنع لوغو","create logo","make logo","design logo","generate logo","business logo","company logo"];
+  const isLogoRequest = (text: string) => LOGO_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  // كلمات كشف طلبات الكتب
+  const BOOKS_KEYWORDS = ["ابحث عن كتاب","أريد كتاب","اريد كتاب","كتب مجانية","اعطني كتاب","بحث كتب","تحميل كتاب","مكتبة مجانية","search books","free books","find book","download book"];
+  const isBooksRequest = (text: string) => BOOKS_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  // كلمات كشف طلبات الوثائق
+  const DOC_KEYWORDS = ["اكتب تقرير","أنشئ وثيقة","انشئ وثيقة","اكتب وثيقة","أنشئ تقرير","انشئ تقرير","ملف وورد","وثيقة word","تقرير رسمي","generate document","create word","make report","write report"];
+  const isDocRequest = (text: string) => DOC_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  const handleLogoGeneration = async (prompt: string) => {
+    const businessName = prompt.replace(/صمم شعار|اعمل شعار|اصنع شعار|أنشئ شعار|شعار لـ|شعار لشركة|شعار لمحل|لوغو احترافي|صمم لوغو|اعمل لوغو|create logo|make logo|design logo|generate logo|business logo|company logo/gi, "").trim() || prompt.trim();
+    const userMsgId = Date.now();
+    setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
+    setInput("");
+    setIsStreaming(true);
+    const loadingId = userMsgId + 1;
+    const logoId = `logo_${loadingId}`;
+    setLocalMessages(prev => [...prev, { id: loadingId, role: "assistant", content: "[LOGO_LOADING]" }]);
+    try {
+      const r = await fetch("/api/logos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessName, businessType: "شركة", style: "modern" }),
+      });
+      const data = await r.json() as { svg?: string; error?: string };
+      if (data.svg) {
+        setLogoCache(prev => ({ ...prev, [logoId]: data.svg! }));
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_LOGO:${logoId}]` } : m));
+      } else {
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "لم أتمكن من توليد الشعار، حاول مرة أخرى" : "Logo generation failed" } : m));
+      }
+    } catch {
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "حدث خطأ في توليد الشعار" : "Logo generation failed" } : m));
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const handleBooksSearch = async (prompt: string) => {
+    const query = prompt.replace(/ابحث عن كتاب|أريد كتاب|اريد كتاب|كتب مجانية|اعطني كتاب|بحث كتب|search books|free books|find book/gi, "").trim() || "programming";
+    const userMsgId = Date.now();
+    setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
+    setInput("");
+    setIsStreaming(true);
+    const loadingId = userMsgId + 1;
+    const booksId = `books_${loadingId}`;
+    setLocalMessages(prev => [...prev, { id: loadingId, role: "assistant", content: "[BOOKS_LOADING]" }]);
+    try {
+      const r = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+      const data = await r.json() as { results?: BookItem[]; error?: string };
+      const books = data.results ?? [];
+      setBooksCache(prev => ({ ...prev, [booksId]: books }));
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_BOOKS:${booksId}]` } : m));
+    } catch {
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "حدث خطأ في البحث" : "Search failed" } : m));
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const handleDocGeneration = async (prompt: string) => {
+    const title = prompt.replace(/اكتب تقرير عن|أنشئ وثيقة عن|انشئ وثيقة عن|اكتب وثيقة عن|أنشئ تقرير عن|انشئ تقرير عن|ملف وورد عن|generate document about|create word about|make report about|write report about/gi, "").trim() || prompt.trim();
+    const userMsgId = Date.now();
+    setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
+    setInput("");
+    setIsStreaming(true);
+    const loadingId = userMsgId + 1;
+    const docId = `doc_${loadingId}`;
+    setLocalMessages(prev => [...prev, { id: loadingId, role: "assistant", content: "[DOC_LOADING]" }]);
+    try {
+      const r = await fetch("/api/docs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content: `تقرير شامل عن: ${title}\n\nتم إنشاء هذا التقرير بواسطة يمن شات - الوكيل الذكي لخالد سلمان.`, lang }),
+      });
+      const data = await r.json() as { base64?: string; filename?: string; error?: string };
+      if (data.base64 && data.filename) {
+        setDocCache(prev => ({ ...prev, [docId]: { base64: data.base64!, filename: data.filename! } }));
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_DOC:${docId}]` } : m));
+      } else {
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "فشل إنشاء المستند" : "Document creation failed" } : m));
+      }
+    } catch {
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "حدث خطأ في إنشاء المستند" : "Document creation failed" } : m));
+    } finally {
+      setIsStreaming(false);
+    }
+  };
 
   const handleImageGeneration = async (prompt: string) => {
     const userMsgId = Date.now();
@@ -438,6 +553,159 @@ export default function Chat() {
         </div>
       );
     }
+    // تحميل الشعار
+    if (content === "[LOGO_LOADING]") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <Palette className="w-4 h-4 text-primary" />
+          {lang === "ar" ? "جارٍ تصميم الشعار بالذكاء الاصطناعي..." : "Designing your logo with AI..."}
+        </div>
+      );
+    }
+
+    // عرض الشعار المولّد
+    const logoMatch = content.match(/^\[GEN_LOGO:(logo_\d+)\]$/);
+    if (logoMatch) {
+      const logoId = logoMatch[1];
+      const svg = logoCache[logoId];
+      if (!svg) return <span className="text-muted-foreground text-sm">{lang === "ar" ? "جارٍ التحميل..." : "Loading..."}</span>;
+      const svgBlob = new Blob([svg], { type: "image/svg+xml" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      return (
+        <div className="space-y-3 w-full max-w-md">
+          <div className="text-xs font-semibold text-primary flex items-center gap-1">
+            <Palette className="w-3.5 h-3.5" />
+            {lang === "ar" ? "شعار مُولَّد بالذكاء الاصطناعي" : "AI-Generated Logo"}
+          </div>
+          <div className="rounded-xl border border-border bg-white p-6 flex items-center justify-center shadow-md" style={{ minHeight: 160 }}
+            dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="flex gap-2 flex-wrap">
+            <a href={svgUrl} download={`logo.svg`}
+              className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors">
+              <Download className="w-3 h-3" />
+              {lang === "ar" ? "تحميل SVG" : "Download SVG"}
+            </a>
+            <button
+              onClick={() => {
+                const png = document.createElement("canvas");
+                const ctx = png.getContext("2d");
+                const img = new Image();
+                img.onload = () => {
+                  png.width = 400; png.height = 200;
+                  ctx?.drawImage(img, 0, 0);
+                  const a = document.createElement("a");
+                  a.download = "logo.png"; a.href = png.toDataURL(); a.click();
+                };
+                img.src = svgUrl;
+              }}
+              className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-full border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5 transition-colors">
+              <Download className="w-3 h-3" />
+              {lang === "ar" ? "تحميل PNG" : "Download PNG"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // تحميل الكتب
+    if (content === "[BOOKS_LOADING]") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <BookOpen className="w-4 h-4 text-primary" />
+          {lang === "ar" ? "جارٍ البحث في المكتبة المجانية..." : "Searching free library..."}
+        </div>
+      );
+    }
+
+    // عرض نتائج الكتب
+    const booksMatch = content.match(/^\[GEN_BOOKS:(books_\d+)\]$/);
+    if (booksMatch) {
+      const booksId = booksMatch[1];
+      const books = booksCache[booksId] ?? [];
+      return (
+        <div className="space-y-3 w-full max-w-2xl">
+          <div className="text-xs font-semibold text-primary flex items-center gap-1">
+            <BookOpen className="w-3.5 h-3.5" />
+            {lang === "ar" ? `📚 المكتبة المجانية — ${books.length} كتاب` : `📚 Free Library — ${books.length} books`}
+          </div>
+          {books.length === 0 && <p className="text-sm text-muted-foreground">{lang === "ar" ? "لم يتم العثور على كتب" : "No books found"}</p>}
+          <div className="grid gap-2">
+            {books.slice(0, 8).map(book => {
+              const epubUrl = book.formats["application/epub+zip"] ?? book.formats["text/html"] ?? "#";
+              return (
+                <div key={book.id} className="rounded-lg border border-border bg-card p-3 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{book.title}</p>
+                    <p className="text-xs text-muted-foreground">{book.authors.map(a => a.name).join(", ")}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">⬇ {book.download_count.toLocaleString()} {lang === "ar" ? "تحميل" : "downloads"}</p>
+                  </div>
+                  {epubUrl !== "#" && (
+                    <a href={epubUrl} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors">
+                      <Download className="w-3 h-3" />{lang === "ar" ? "تحميل" : "Download"}
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // تحميل المستند
+    if (content === "[DOC_LOADING]") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <FileText className="w-4 h-4 text-primary" />
+          {lang === "ar" ? "جارٍ إنشاء المستند..." : "Creating document..."}
+        </div>
+      );
+    }
+
+    // عرض المستند المولّد
+    const docMatch = content.match(/^\[GEN_DOC:(doc_\d+)\]$/);
+    if (docMatch) {
+      const docId = docMatch[1];
+      const doc = docCache[docId];
+      if (!doc) return <span className="text-muted-foreground text-sm">{lang === "ar" ? "جارٍ التحميل..." : "Loading..."}</span>;
+      const handleDocDownload = () => {
+        const bytes = atob(doc.base64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        const blob = new Blob([arr], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = doc.filename; a.click();
+        URL.revokeObjectURL(url);
+      };
+      return (
+        <div className="space-y-2 w-full max-w-sm">
+          <div className="text-xs font-semibold text-primary flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5" />
+            {lang === "ar" ? "وثيقة Word جاهزة للتحميل" : "Word document ready"}
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{doc.filename}</p>
+              <p className="text-xs text-muted-foreground">{lang === "ar" ? "مستند Word (.docx)" : "Word Document (.docx)"}</p>
+            </div>
+            <button onClick={handleDocDownload}
+              className="shrink-0 inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Download className="w-3 h-3" />
+              {lang === "ar" ? "تحميل" : "Download"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return content.replace(/\[IMAGE:[^\]]+\]/g, isRTL ? "[📷 صورة مرفقة]" : "[📷 Image attached]").trim();
   };
 

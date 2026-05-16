@@ -17,6 +17,7 @@
     "@workspace/integrations-gemini-ai": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
+    "docx": "^9.6.1",
     "drizzle-orm": "catalog:",
     "express": "^5",
     "http-proxy-middleware": "^4.0.0",

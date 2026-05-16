@@ -217,6 +217,11 @@ router.post("/gemini/generate-website", requireAuth, async (req: Request, res: R
   const { prompt } = req.body as { prompt?: string };
   if (!prompt?.trim()) { res.status(400).json({ error: "prompt required" }); return; }
 
+  const { websiteHtmlCache } = await import("../../lib/cache.js");
+  const wsCacheKey = prompt.trim().toLowerCase().slice(0, 120);
+  const cachedHtml = websiteHtmlCache.get(wsCacheKey);
+  if (cachedHtml) { res.json({ html: cachedHtml, cached: true }); return; }
+
   const WEBSITE_SYSTEM_PROMPT = `أنت مولّد مواقع HTML احترافي. مهمتك الوحيدة: كتابة موقع HTML كامل وجميل في ملف واحد (HTML + CSS + JS مضمّنة).
 
 القواعد الصارمة:
@@ -237,6 +242,7 @@ router.post("/gemini/generate-website", requireAuth, async (req: Request, res: R
     const raw = result.text ?? "";
     const htmlMatch = raw.match(/```(?:html)?\s*([\s\S]*?)```/);
     const html = htmlMatch ? htmlMatch[1].trim() : raw.trim();
+    websiteHtmlCache.set(wsCacheKey, html);
     res.json({ html });
   } catch (err) {
     req.log.error({ err }, "Website generation error");
@@ -415,6 +421,14 @@ router.post("/gemini/generate-image-free", requireAuth, async (req: Request, res
   const { prompt, conversationId } = req.body as { prompt?: string; conversationId?: number };
   if (!prompt?.trim()) { res.status(400).json({ error: "prompt required" }); return; }
 
+  const { imagePromptCache } = await import("../../lib/cache.js");
+  const imgCacheKey = prompt.trim().toLowerCase().slice(0, 120);
+  const cachedImgUrl = imagePromptCache.get(imgCacheKey);
+  if (cachedImgUrl && !conversationId) {
+    res.json({ imageUrl: cachedImgUrl, cached: true });
+    return;
+  }
+
   // Gemini يحسّن وصف الصورة ويترجمه للإنجليزية (مجاني)
   let enhancedPrompt = prompt;
   try {
@@ -428,6 +442,7 @@ router.post("/gemini/generate-image-free", requireAuth, async (req: Request, res
 
   const seed = Math.floor(Math.random() * 99999);
   const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
+  imagePromptCache.set(imgCacheKey, imageUrl);
 
   // حفظ في المحادثة إذا كان هناك conversationId
   if (conversationId) {

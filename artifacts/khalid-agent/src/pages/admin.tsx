@@ -173,6 +173,9 @@ export default function AdminPage() {
   const [bookingNotes, setBookingNotes] = useState<Record<number, string>>({});
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditFilter, setAuditFilter] = useState("");
+  const [pushNotif, setPushNotif] = useState({ title: "", body: "" });
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState<string | null>(null);
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -330,6 +333,30 @@ export default function AdminPage() {
   const handleDeleteAnnouncement = async (id: number) => {
     await fetch(`/api/admin/announcements/${id}`, { method: "DELETE" });
     await fetchAnnouncements();
+  };
+
+  const handleSendPushAll = async () => {
+    if (!pushNotif.title.trim() || !pushNotif.body.trim()) return;
+    setPushSending(true);
+    setPushResult(null);
+    try {
+      const r = await fetch("/api/push/send-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: pushNotif.title, body: pushNotif.body, url: "/chat" }),
+      });
+      if (r.ok) {
+        setPushResult("✅ تم إرسال الإشعار لجميع المشتركين بنجاح!");
+        setPushNotif({ title: "", body: "" });
+      } else {
+        setPushResult("❌ فشل الإرسال. تأكد من وجود مشتركين.");
+      }
+    } catch {
+      setPushResult("❌ حدث خطأ في الإرسال");
+    } finally {
+      setPushSending(false);
+      setTimeout(() => setPushResult(null), 5000);
+    }
   };
 
   const handleUnblockFraud = async (id: number) => {
@@ -864,6 +891,41 @@ export default function AdminPage() {
                 <Bell className="w-4 h-4 ml-1" />نشر الإعلان
               </Button>
             </div>
+
+            {/* Push Notification Sender */}
+            <div className="bg-card border border-violet-500/30 rounded-xl p-4 space-y-3">
+              <h3 className="font-semibold text-sm text-violet-400 flex items-center gap-2">
+                <Send className="w-4 h-4" />
+                📣 إرسال إشعار فوري للجوالات (Web Push)
+              </h3>
+              <p className="text-xs text-muted-foreground">يصل مباشرة على شاشة جوال كل مستخدم فعّل الإشعارات — صفر تكلفة</p>
+              <input
+                className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm"
+                placeholder="عنوان الإشعار..."
+                value={pushNotif.title}
+                onChange={e => setPushNotif(p => ({ ...p, title: e.target.value }))}
+              />
+              <textarea
+                className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm resize-none"
+                rows={2}
+                placeholder="نص الإشعار..."
+                value={pushNotif.body}
+                onChange={e => setPushNotif(p => ({ ...p, body: e.target.value }))}
+              />
+              {pushResult && (
+                <p className="text-sm font-medium">{pushResult}</p>
+              )}
+              <Button
+                size="sm"
+                onClick={() => void handleSendPushAll()}
+                disabled={pushSending || !pushNotif.title.trim() || !pushNotif.body.trim()}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {pushSending ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : <Send className="w-4 h-4 ml-1" />}
+                {pushSending ? "جارٍ الإرسال..." : "إرسال لكل المشتركين"}
+              </Button>
+            </div>
+
             <div className="grid gap-3">
               {announcements.map(a => (
                 <div key={a.id} className={cn("bg-card border rounded-xl p-4", a.isActive ? "border-primary/30" : "border-border opacity-60")}>

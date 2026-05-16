@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, sql as _sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import webPush from "web-push";
@@ -12,6 +12,15 @@ const VAPID_EMAIL = process.env["VAPID_EMAIL"] ?? "mailto:admin@example.com";
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webPush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ error: "Unauthorized — please sign in" });
+    return;
+  }
+  next();
 }
 
 // ── مفتاح VAPID العام للعميل ──────────────────────────────────
@@ -46,6 +55,21 @@ router.post("/push/unsubscribe", async (req: Request, res: Response): Promise<vo
   if (!endpoint) { res.status(400).json({ error: "endpoint required" }); return; }
   await db.delete(pushSubsTable).where(eq(pushSubsTable.endpoint, endpoint));
   res.json({ success: true });
+});
+
+// ── إرسال إشعار لكل المشتركين من لوحة الإدارة ───────────────
+router.post("/push/send-all", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const { title, body, url = "/" } = req.body as { title?: string; body?: string; url?: string };
+  if (!title?.trim() || !body?.trim()) {
+    res.status(400).json({ error: "title and body required" });
+    return;
+  }
+  try {
+    await sendPushToAll(title.trim(), body.trim(), url);
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Failed to send notifications" });
+  }
 });
 
 // ── دالة مساعدة لإرسال Push لكل المشتركين ────────────────────
