@@ -59,6 +59,8 @@ export default function Chat() {
   const [isListening, setIsListening] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<number>>(new Set());
+  const [websiteCache, setWebsiteCache] = useState<Record<string, string>>({});
+  const [expandedCode, setExpandedCode] = useState<Record<string, boolean>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
@@ -239,6 +241,12 @@ export default function Chat() {
       messageContent += `\n[IMAGE:${selectedImage.mimeType}:${selectedImage.base64}]`;
     }
 
+    // توليد موقع HTML مباشرة إذا كان الطلب لموقع
+    if (!selectedImage && isWebsiteRequest(messageContent)) {
+      void handleWebsiteGeneration(messageContent);
+      return;
+    }
+
     // توليد صورة مباشرة إذا كان الطلب لصورة
     if (!selectedImage && isImageRequest(messageContent)) {
       handleImageGeneration(messageContent);
@@ -259,6 +267,38 @@ export default function Chat() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
+  // كلمات كشف طلبات توليد المواقع
+  const WEBSITE_KEYWORDS = ["صمم موقع","اعمل موقع","ابني موقع","اصنع موقع","أنشئ موقع","انشئ موقع","صمم لي موقع","اعملي موقع","بني لي موقع","صمم صفحة ويب","اعمل صفحة ويب","صمم لاندينج","create website","build website","make website","design website","build a website","create a page","build a page","make a webpage"];
+  const isWebsiteRequest = (text: string) => WEBSITE_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
+
+  const handleWebsiteGeneration = async (prompt: string) => {
+    const userMsgId = Date.now();
+    setLocalMessages(prev => [...prev, { id: userMsgId, role: "user", content: prompt }]);
+    setInput("");
+    setIsStreaming(true);
+    const loadingId = userMsgId + 1;
+    const siteId = `ws_${loadingId}`;
+    setLocalMessages(prev => [...prev, { id: loadingId, role: "assistant", content: "[GEN_WEBSITE_LOADING]" }]);
+    try {
+      const r = await fetch("/api/gemini/generate-website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await r.json() as { html?: string; error?: string };
+      if (data.html) {
+        setWebsiteCache(prev => ({ ...prev, [siteId]: data.html! }));
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: `[GEN_WEBSITE:${siteId}]` } : m));
+      } else {
+        setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: data.error ?? "فشل توليد الموقع" } : m));
+      }
+    } catch {
+      setLocalMessages(prev => prev.map(m => m.id === loadingId ? { ...m, content: lang === "ar" ? "حدث خطأ في توليد الموقع" : "Website generation failed" } : m));
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
   // كلمات كشف طلبات توليد الصور
   const IMAGE_KEYWORDS = ["صمم صورة","صمم لي صورة","ارسم","أنشئ صورة","اعمل صورة","اصنع صورة","رسم لي","صمم لي","ارسم لي","انشئ صورة","اصنع لي صورة","generate image","create image","draw me","design image","make image"];
   const isImageRequest = (text: string) => IMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw.toLowerCase()));
@@ -277,6 +317,61 @@ export default function Chat() {
   };
 
   const displayContent = (content: string): ReactNode => {
+    // حالة تحميل الموقع
+    if (content === "[GEN_WEBSITE_LOADING]") {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          {lang === "ar" ? "جارٍ بناء الموقع بالذكاء الاصطناعي..." : "Building website with AI..."}
+        </div>
+      );
+    }
+
+    // عرض الموقع المولّد (iframe)
+    const wsMatch = content.match(/^\[GEN_WEBSITE:(ws_\d+)\]$/);
+    if (wsMatch) {
+      const siteId = wsMatch[1];
+      const html = websiteCache[siteId];
+      if (!html) return <span className="text-muted-foreground text-sm">{lang === "ar" ? "جارٍ التحميل..." : "Loading..."}</span>;
+      return (
+        <div className="space-y-2 w-full max-w-2xl">
+          <div className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
+            🌐 {lang === "ar" ? "موقع مُولَّد بالذكاء الاصطناعي" : "AI-Generated Website"}
+          </div>
+          <div className="rounded-xl overflow-hidden border border-border shadow-lg bg-white" style={{ height: 420 }}>
+            <iframe
+              srcDoc={html}
+              title="AI Generated Website"
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+          <div className="flex gap-3 flex-wrap items-center">
+            <button
+              onClick={() => setExpandedCode(prev => ({ ...prev, [siteId]: !prev[siteId] }))}
+              className="inline-flex items-center gap-1 text-[12px] px-3 py-1 rounded-full border border-primary/30 text-primary hover:bg-primary/5 transition-colors"
+            >
+              {expandedCode[siteId] ? "▲ " : "▼ "}
+              {lang === "ar" ? (expandedCode[siteId] ? "إخفاء الكود" : "عرض الكود") : (expandedCode[siteId] ? "Hide code" : "View code")}
+            </button>
+            <a
+              href={`data:text/html;charset=utf-8,${encodeURIComponent(html)}`}
+              download="website.html"
+              className="inline-flex items-center gap-1 text-[12px] px-3 py-1 rounded-full border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5 transition-colors"
+            >
+              ⬇ {lang === "ar" ? "تحميل الموقع" : "Download"}
+            </a>
+          </div>
+          {expandedCode[siteId] && (
+            <pre className="text-xs bg-muted/60 rounded-xl p-4 overflow-x-auto max-h-72 border border-border" dir="ltr">
+              <code>{html}</code>
+            </pre>
+          )}
+        </div>
+      );
+    }
+
+    // عرض الصورة المولّدة
     const genMatch = content.match(/^\[GEN_IMAGE:(https?:\/\/[^\]]+)\]$/);
     if (genMatch) {
       return (

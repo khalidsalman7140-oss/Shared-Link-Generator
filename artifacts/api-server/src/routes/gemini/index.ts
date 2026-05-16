@@ -212,6 +212,38 @@ router.post("/gemini/guest", guestRateLimit, async (req: Request, res: Response)
   res.end();
 });
 
+// ── توليد موقع HTML كامل مجاناً لجميع المستخدمين ────────────────
+router.post("/gemini/generate-website", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const { prompt } = req.body as { prompt?: string };
+  if (!prompt?.trim()) { res.status(400).json({ error: "prompt required" }); return; }
+
+  const WEBSITE_SYSTEM_PROMPT = `أنت مولّد مواقع HTML احترافي. مهمتك الوحيدة: كتابة موقع HTML كامل وجميل في ملف واحد (HTML + CSS + JS مضمّنة).
+
+القواعد الصارمة:
+1. ابدأ مباشرة بـ <!DOCTYPE html> وانتهِ بـ </html> — بدون أي نص قبل أو بعده
+2. ضمّن كل الـ CSS داخل وسوم <style> والـ JS داخل <script>
+3. استخدم CDN مضمونة فقط إذا احتجت مكتبات (Bootstrap، TailwindCSS، Font Awesome)
+4. دعم RTL للعربية تلقائياً: <html lang="ar" dir="rtl">
+5. تصميم عصري جذاب بألوان متناسقة وجرادييت
+6. متجاوب مع الجوال (responsive)
+7. لا تكتب أي شرح أو ملاحظات — الكود HTML فقط`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 8192, systemInstruction: WEBSITE_SYSTEM_PROMPT },
+    });
+    const raw = result.text ?? "";
+    const htmlMatch = raw.match(/```(?:html)?\s*([\s\S]*?)```/);
+    const html = htmlMatch ? htmlMatch[1].trim() : raw.trim();
+    res.json({ html });
+  } catch (err) {
+    req.log.error({ err }, "Website generation error");
+    res.status(500).json({ error: "فشل توليد الموقع، يرجى المحاولة مرة أخرى" });
+  }
+});
+
 router.get("/gemini/conversations", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const conversations = await db.select().from(conversationsTable)
