@@ -159,6 +159,7 @@ export default function AdminPage() {
   const [adminKeyError, setAdminKeyError] = useState("");
   const [adminKeyLoading, setAdminKeyLoading] = useState(false);
   const adminKeyRef = useRef<HTMLInputElement>(null);
+  const prevPendingCount = useRef(0);
   const [editPlan, setEditPlan] = useState<{ userId: string; plan: string } | null>(null);
   const [paymentReview, setPaymentReview] = useState<{ id: number; status: string; notes: string } | null>(null);
   const [viewReceipt, setViewReceipt] = useState<string | null>(null);
@@ -176,6 +177,9 @@ export default function AdminPage() {
   const [pushNotif, setPushNotif] = useState({ title: "", body: "" });
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<string | null>(null);
+  const [kuraimiAccount, setKuraimiAccount] = useState("");
+  const [newKuraimiAccountInput, setNewKuraimiAccountInput] = useState("");
+  const [savingKuraimi, setSavingKuraimi] = useState(false);
 
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
   const isAdmin = userEmail === ADMIN_EMAIL;
@@ -242,6 +246,35 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, [isAdmin, fetchStats, fetchUsers, fetchRatings, fetchPayments, fetchAnnouncements, fetchFraud, fetchAds, fetchBookings, fetchAuditLogs]);
 
+  // ── جلب رقم حساب الكريمي ─────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/payments/config")
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { kuraimiAccount: string } | null) => {
+        if (d?.kuraimiAccount) { setKuraimiAccount(d.kuraimiAccount); setNewKuraimiAccountInput(d.kuraimiAccount); }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── تحديث تلقائي لطلبات الدفع كل 12 ثانية ────────────────────
+  useEffect(() => {
+    if (!isAdmin || !adminUnlocked) return;
+    const id = setInterval(async () => {
+      try {
+        const r = await fetch("/api/admin/payments");
+        if (!r.ok) return;
+        const fresh = await r.json() as PaymentRequest[];
+        setPayments(fresh);
+        const pending = fresh.filter(p => p.status === "pending").length;
+        if (pending > prevPendingCount.current) {
+          fetchStats().catch(() => {});
+        }
+        prevPendingCount.current = pending;
+      } catch { /* ignore */ }
+    }, 12_000);
+    return () => clearInterval(id);
+  }, [isAdmin, adminUnlocked, fetchStats]);
+
   const handleChangePlan = async () => {
     if (!editPlan) return;
     await fetch(`/api/admin/users/${editPlan.userId}/plan`, {
@@ -272,6 +305,18 @@ export default function AdminPage() {
       body: JSON.stringify({ reason: "Blocked by admin" }),
     });
     await fetchUsers();
+  };
+
+  const handleSaveKuraimiAccount = async () => {
+    if (!newKuraimiAccountInput.trim()) return;
+    setSavingKuraimi(true);
+    await fetch("/api/payments/config/kuraimi-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: newKuraimiAccountInput.trim() }),
+    }).catch(() => {});
+    setKuraimiAccount(newKuraimiAccountInput.trim());
+    setSavingKuraimi(false);
   };
 
   const handleQuickApprove = async (payment: PaymentRequest) => {
@@ -781,11 +826,39 @@ export default function AdminPage() {
               <div>
                 <h2 className="font-bold text-lg">طلبات الدفع ({payments.length})</h2>
                 {pendingPayments.length > 0 && (
-                  <p className="text-xs text-yellow-400">{pendingPayments.length} طلب ينتظر المراجعة</p>
+                  <p className="text-xs text-yellow-400">{pendingPayments.length} طلب ينتظر المراجعة · تحديث كل 12 ث</p>
                 )}
               </div>
               <Button size="sm" variant="outline" onClick={fetchPayments}><RefreshCw className="w-3.5 h-3.5 ml-1" />تحديث</Button>
             </div>
+
+            {/* ── إعداد رقم حساب الكريمي ── */}
+            <div className="bg-card border border-yellow-500/30 rounded-xl p-4 space-y-3">
+              <h3 className="font-semibold text-sm text-yellow-400 flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                🏦 رقم حساب الكريمي (يظهر للمستخدمين في صفحة الدفع)
+              </h3>
+              {kuraimiAccount && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                  <span className="text-xs text-muted-foreground">الحالي:</span>
+                  <span className="font-mono font-bold text-foreground text-sm tracking-widest">{kuraimiAccount}</span>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-sm font-mono"
+                  placeholder="أدخل رقم حساب الكريمي..."
+                  value={newKuraimiAccountInput}
+                  onChange={e => setNewKuraimiAccountInput(e.target.value)}
+                  dir="ltr"
+                />
+                <Button size="sm" onClick={handleSaveKuraimiAccount} disabled={savingKuraimi || !newKuraimiAccountInput.trim()}>
+                  {savingKuraimi ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 ml-1" />}
+                  حفظ
+                </Button>
+              </div>
+            </div>
+
             <div className="grid gap-3">
               {payments.map(p => (
                 <div key={p.id} className={cn("bg-card border rounded-xl p-4", p.status === "pending" ? "border-yellow-500/40 bg-yellow-500/3" : p.status === "approved" ? "border-emerald-500/30" : "border-destructive/20 opacity-70")}>
@@ -812,9 +885,13 @@ export default function AdminPage() {
                     </div>
                     <div className="flex flex-col gap-1.5 shrink-0">
                       {p.receiptImage && (
-                        <Button size="sm" variant="outline" className="text-xs h-7 w-full" onClick={() => setViewReceipt(p.receiptImage)}>
-                          <Eye className="w-3 h-3 ml-1" />الوصل
-                        </Button>
+                        <img
+                          src={p.receiptImage}
+                          alt="وصل الحوالة"
+                          className="w-20 h-20 object-cover rounded-lg cursor-pointer border border-border hover:opacity-80 transition-opacity mb-1"
+                          onClick={() => setViewReceipt(p.receiptImage)}
+                          title="اضغط لتكبير صورة الإيصال"
+                        />
                       )}
                       {p.status === "pending" && (
                         <>

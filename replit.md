@@ -61,7 +61,18 @@
 - Users must sign in (email or Google) to access the chat
 - Conversations are tied to Clerk `userId` — fully isolated per user
 - Subscription plans: Free → Weekly ($2.99) → Monthly ($9.99) → Annual ($79.99)
-- Payment is manual via WhatsApp — no payment gateway integrated
+- Payment via Al-Kuraimi bank transfer — admin approves manually via admin panel
+
+## Kuraimi Payment System
+
+- User page: `/subscribe` — white theme, shows Kuraimi account number, mandatory fields: رقم السند + screenshot
+- Backend: `POST /api/payments/request` — checks duplicate transfer number (anti-fraud), stores receipt image in DB
+- Anti-fraud: duplicate `transferNumber` returns 409 error instantly
+- Admin notification: push notification sent to all subscribers when new payment submitted
+- Admin panel → Payments tab → set Kuraimi account number via settings widget (stored in `app_settings` table, key `kuraimi_account`)
+- Admin approves/rejects via `PATCH /api/admin/payments/:id` → instantly upgrades `userPlans` table
+- Auto-refresh: admin panel polls payments every 12 seconds automatically
+- Optional env var: `KURAIMI_ACCOUNT_NUMBER` (fallback if DB setting not set)
 
 ## Multilingual Support
 
