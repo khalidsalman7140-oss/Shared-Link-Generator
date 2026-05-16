@@ -652,6 +652,7 @@ function AnalyzerTab() {
   );
 }
 
+const CR_EMAIL = "khalidsalman7140@gmail.com";
 const CR_PIN = "7140";
 const CR_PASS = "الفاتح";
 
@@ -790,19 +791,20 @@ function AdminWorkspaceTab() {
 function ControlRoomTab() {
   /* ── Triple-lock state ── */
   const [locked, setLocked] = useState(() => sessionStorage.getItem("ks_cr_unlocked") !== "1");
-  const [pinInput, setPinInput]   = useState("");
-  const [passInput, setPassInput] = useState("");
-  const [lockErr, setLockErr]     = useState("");
-  const [showPin, setShowPin]     = useState(false);
-  const [showPass, setShowPass]   = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [pinInput, setPinInput]     = useState("");
+  const [passInput, setPassInput]   = useState("");
+  const [lockErr, setLockErr]       = useState("");
+  const [showPin, setShowPin]       = useState(false);
+  const [showPass, setShowPass]     = useState(false);
 
   const tryUnlock = () => {
-    if (pinInput === CR_PIN && passInput === CR_PASS) {
+    if (emailInput.trim().toLowerCase() === CR_EMAIL && pinInput === CR_PIN && passInput === CR_PASS) {
       sessionStorage.setItem("ks_cr_unlocked", "1");
       setLocked(false);
       setLockErr("");
     } else {
-      setLockErr("🚫 الرمز أو كلمة الفاتح غير صحيحة — حاول مجدداً");
+      setLockErr("🚫 البريد أو الرمز أو كلمة الفاتح غير صحيحة — حاول مجدداً");
       setPinInput(""); setPassInput("");
     }
   };
@@ -864,7 +866,15 @@ function ControlRoomTab() {
           <KeyRound style={{ width:28, height:28, color:"#fff" }} />
         </div>
         <p style={{ fontWeight:900, fontSize:"1.1rem", color:"#000", margin:"0 0 4px" }}>🔐 قفل الأمان الثلاثي</p>
-        <p style={{ fontSize:"0.72rem", color:"#6b7280", margin:"0 0 22px" }}>يُفتح بالرمز السري + كلمة الفاتح فقط</p>
+        <p style={{ fontSize:"0.72rem", color:"#6b7280", margin:"0 0 22px" }}>البريد الإلكتروني + الرمز السري + كلمة الفاتح</p>
+
+        <div style={{ marginBottom:14 }}>
+          <p style={{ fontWeight:800, fontSize:"0.8rem", color:"#000", margin:"0 0 7px", textAlign:"right" }}>📧 البريد الإلكتروني</p>
+          <input type="email" value={emailInput} onChange={e=>setEmailInput(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&tryUnlock()}
+            placeholder="أدخل بريدك الإلكتروني..."
+            style={{ width:"100%", padding:"11px 13px", border:"2px solid #000", borderRadius:11, fontSize:"0.85rem", fontFamily:"inherit", color:"#000", background:"#f8fafc", outline:"none", boxSizing:"border-box" }} />
+        </div>
 
         <div style={{ marginBottom:14 }}>
           <p style={{ fontWeight:800, fontSize:"0.8rem", color:"#000", margin:"0 0 7px", textAlign:"right" }}>🔢 الرمز السري (PIN)</p>

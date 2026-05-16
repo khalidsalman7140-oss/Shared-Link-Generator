@@ -29,16 +29,17 @@ const TYPE_META: Record<string, { icon: string; label: string; color: string }> 
   social:   { icon: "📱", label: "منشور سوشيال",  color: "#e1306c" },
   content:  { icon: "✍️",  label: "محتوى",         color: "#d97706" },
   analysis: { icon: "📊", label: "تحليل",          color: "#0891b2" },
+  video:    { icon: "🎬", label: "سكريبت فيديو",  color: "#7c3aed" },
   other:    { icon: "⚙️",  label: "أخرى",          color: "#374151" },
 };
 
 const QUICK_SUGGESTIONS = [
-  { text: "أنشئ صفحة هبوط لمشروع", icon: "🌐" },
-  { text: "اكتب حالة واتساب تحفيزية", icon: "💬" },
-  { text: "اكتب كود Python لقراءة ملف CSV", icon: "🐍" },
-  { text: "حلل وضع اليمن الاقتصادي", icon: "📊" },
-  { text: "اكتب مقالاً عن أهمية الذكاء الاصطناعي", icon: "✍️" },
-  { text: "أنشئ سيرة ذاتية احترافية", icon: "📄" },
+  { text: "أنشئ صفحة هبوط احترافية لمتجر يمني", icon: "🌐" },
+  { text: "اكتب حالة واتساب تحفيزية جميلة", icon: "💬" },
+  { text: "اكتب كود Python لقراءة ملف CSV وتحليله", icon: "🐍" },
+  { text: "صمم سكريبت فيديو إعلاني 60 ثانية", icon: "🎬" },
+  { text: "أنشئ سيرة ذاتية احترافية بتصميم جميل", icon: "📄" },
+  { text: "اكتب منشور إنستغرام مع هاشتاقات", icon: "📱" },
 ];
 
 const CATEGORIES = [
@@ -310,11 +311,12 @@ function AgentTab() {
           <p style={{ fontSize: "3.5rem", margin: "0 0 12px" }}>⚡</p>
           <p style={{ fontWeight: 900, color: "#000", fontSize: "1rem", margin: "0 0 6px" }}>وكيل ذكي ينتظر أمرك</p>
           <p style={{ color: "#9ca3af", fontSize: "0.8rem", margin: "0 0 24px" }}>صِف ما تحتاجه بالتفصيل وسيُنجزه فوراً</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 500, margin: "0 auto" }}>
             {[
-              { icon: "🌐", label: "مواقع ويب", sub: "HTML جاهز مع رابط حي" },
-              { icon: "💻", label: "كود برمجي", sub: "Python, JS, SQL وأكثر" },
-              { icon: "✍️",  label: "محتوى وتحليل", sub: "مقالات، تقارير، منشورات" },
+              { icon: "🌐", label: "مواقع ويب", sub: "HTML + رابط حي + نشر مجاني" },
+              { icon: "💻", label: "كود وإصلاح", sub: "Python, JS, SQL وأكثر" },
+              { icon: "🎬", label: "سكريبت فيديو", sub: "مع مصادر ميديا مجانية" },
+              { icon: "💬", label: "واتساب وسوشيال", sub: "حالات، منشورات، هاشتاقات" },
             ].map((c, i) => (
               <div key={i} style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "16px 12px", textAlign: "center" }}>
                 <p style={{ fontSize: "1.8rem", margin: "0 0 6px" }}>{c.icon}</p>
