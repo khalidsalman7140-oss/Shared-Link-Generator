@@ -655,6 +655,138 @@ function AnalyzerTab() {
 const CR_PIN = "7140";
 const CR_PASS = "الفاتح";
 
+/* ════════════ Admin Workspace Tab ════════════ */
+interface WsArtifact {
+  id: number; userId: string; userEmail: string | null; userName: string | null;
+  type: string; title: string; content: string;
+  siteSlug: string | null; platform: string | null;
+  request: string; createdAt: string;
+}
+const WS_TYPE_META: Record<string, { icon: string; label: string; color: string }> = {
+  website: { icon:"🌐", label:"موقع",       color:"#2563eb" },
+  cv:      { icon:"📄", label:"سيرة ذاتية", color:"#7c3aed" },
+  code:    { icon:"💻", label:"كود",         color:"#059669" },
+  social:  { icon:"📱", label:"سوشيال",     color:"#e1306c" },
+  content: { icon:"✍️",  label:"محتوى",     color:"#d97706" },
+  analysis:{ icon:"📊", label:"تحليل",      color:"#0891b2" },
+  other:   { icon:"⚙️",  label:"أخرى",       color:"#374151" },
+};
+
+function AdminWorkspaceTab() {
+  const [items, setItems] = useState<WsArtifact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<number|null>(null);
+  const [filter, setFilter] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/workspace");
+      if (r.ok) setItems(await r.json() as WsArtifact[]);
+    } catch {} finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const filtered = items.filter(i =>
+    !filter || i.userEmail?.includes(filter) || i.title.includes(filter) || i.type === filter
+  );
+
+  const cell: React.CSSProperties = { padding:"8px 10px", borderBottom:"1px solid #f1f5f9", fontSize:"0.72rem", color:"#000", verticalAlign:"top" };
+  const th: React.CSSProperties = { ...cell, fontWeight:900, background:"#000", color:"#fff", fontSize:"0.68rem" };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <div>
+          <p style={{ fontWeight:900, fontSize:"0.9rem", color:"#000", margin:0 }}>🗂 أعمال المستخدمين ({items.length})</p>
+          <p style={{ color:"#9ca3af", fontSize:"0.68rem", margin:"2px 0 0" }}>كل ما أنتجه الوكيل الذكي لجميع المستخدمين</p>
+        </div>
+        <button onClick={() => void load()}
+          style={{ background:"#f8fafc", border:"1.5px solid #e2e8f0", color:"#000", borderRadius:8, padding:"6px 12px", fontSize:"0.7rem", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+          <RefreshCw style={{ width:11, height:11 }} />تحديث
+        </button>
+      </div>
+
+      <div style={{ marginBottom:12 }}>
+        <input value={filter} onChange={e=>setFilter(e.target.value)}
+          placeholder="🔍 بحث بالبريد أو العنوان أو النوع..."
+          style={{ width:"100%", background:"#f8fafc", border:"1.5px solid #e2e8f0", color:"#000", padding:"9px 12px", borderRadius:10, fontSize:"0.8rem", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+      </div>
+
+      {loading ? (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+          <div style={{ width:24, height:24, borderRadius:"50%", border:"3px solid #000", borderTopColor:"transparent", animation:"ospin 0.7s linear infinite" }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"40px 20px", color:"#9ca3af", fontSize:"0.85rem" }}>
+          {items.length === 0 ? "لا يوجد مستخدمون استخدموا الوكيل الذكي بعد" : "لا توجد نتائج للبحث"}
+        </div>
+      ) : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"0.72rem" }}>
+            <thead>
+              <tr>
+                <th style={th}>#</th>
+                <th style={th}>المستخدم</th>
+                <th style={th}>النوع</th>
+                <th style={th}>العنوان</th>
+                <th style={th}>التاريخ</th>
+                <th style={th}>رابط</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(item => {
+                const meta = WS_TYPE_META[item.type] ?? WS_TYPE_META["other"]!;
+                const isExp = expandedId === item.id;
+                return (
+                  <>
+                    <tr key={item.id} style={{ background: isExp?"#f8fafc":"#fff", cursor:"pointer" }}
+                      onClick={() => setExpandedId(isExp ? null : item.id)}>
+                      <td style={cell}>{item.id}</td>
+                      <td style={cell}>
+                        <p style={{ margin:0, fontWeight:700 }}>{item.userName || "—"}</p>
+                        <p style={{ margin:0, color:"#6b7280", fontSize:"0.65rem" }}>{item.userEmail || "—"}</p>
+                      </td>
+                      <td style={cell}>
+                        <span style={{ background:meta.color+"15", color:meta.color, padding:"2px 8px", borderRadius:20, fontWeight:700, fontSize:"0.65rem" }}>
+                          {meta.icon} {meta.label}
+                        </span>
+                      </td>
+                      <td style={cell}>
+                        <p style={{ margin:0, fontWeight:700 }}>{item.title}</p>
+                        <p style={{ margin:0, color:"#9ca3af", fontSize:"0.65rem" }}>{item.request.slice(0,50)}...</p>
+                      </td>
+                      <td style={{ ...cell, whiteSpace:"nowrap" }}>{new Date(item.createdAt).toLocaleDateString("ar-EG")}</td>
+                      <td style={cell}>
+                        {item.siteSlug ? (
+                          <a href={`/api/s/${item.siteSlug}`} target="_blank" rel="noopener noreferrer"
+                            style={{ color:"#2563eb", textDecoration:"none", fontWeight:700, fontSize:"0.65rem" }}>
+                            <ExternalLink style={{ width:11, height:11 }} /> فتح
+                          </a>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                    {isExp && (
+                      <tr key={`exp-${item.id}`}>
+                        <td colSpan={6} style={{ ...cell, background:"#f8fafc", padding:12 }}>
+                          <pre style={{ background:"#1e1e2e", color:"#cdd6f4", padding:"10px", borderRadius:10, fontSize:"0.68rem", overflowX:"auto", margin:0, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:200, overflowY:"auto" }}>
+                            {item.content.slice(0, 2000)}{item.content.length > 2000 ? "\n..." : ""}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ControlRoomTab() {
   /* ── Triple-lock state ── */
   const [locked, setLocked] = useState(() => sessionStorage.getItem("ks_cr_unlocked") !== "1");
@@ -675,7 +807,7 @@ function ControlRoomTab() {
     }
   };
 
-  const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity"|"archive"|"analyzer">("overview");
+  const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity"|"archive"|"analyzer"|"workspace">("overview");
   const [overview, setOverview] = useState<CrOverview|null>(null);
   const [msgs, setMsgs] = useState<CrMsg[]>([]);
   const [otps, setOtps] = useState<CrOtp[]>([]);
@@ -687,7 +819,7 @@ function ControlRoomTab() {
   const [revealOtp, setRevealOtp] = useState<Set<number>>(new Set());
 
   const load = async (section: typeof sub) => {
-    if (section === "archive" || section === "analyzer") return;
+    if (section === "archive" || section === "analyzer" || section === "workspace") return;
     setLoading(true);
     try {
       if (section === "overview") {
@@ -718,6 +850,7 @@ function ControlRoomTab() {
     { id:"activity",  label:"📋 سجل التحركات", icon: Activity },
     { id:"archive",   label:"📦 الأرشيف",      icon: Download },
     { id:"analyzer",  label:"🤖 محلل الكود",   icon: Bot },
+    { id:"workspace", label:"🗂 أعمال المستخدمين", icon: Folder },
   ] as const;
 
   const cell: React.CSSProperties = { padding:"10px 12px", borderBottom:"1px solid #f1f5f9", fontSize:"0.75rem", color:"#000", verticalAlign:"top" };
@@ -999,8 +1132,9 @@ function ControlRoomTab() {
         </div>
       )}
 
-      {sub === "archive"  && <ArchiveTab />}
-      {sub === "analyzer" && <AnalyzerTab />}
+      {sub === "archive"   && <ArchiveTab />}
+      {sub === "analyzer"  && <AnalyzerTab />}
+      {sub === "workspace" && <AdminWorkspaceTab />}
     </div>
   );
 }
