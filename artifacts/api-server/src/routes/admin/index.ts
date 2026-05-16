@@ -273,6 +273,14 @@ router.delete("/admin/announcements/:id", requireAdmin, async (req: Request, res
   res.json({ success: true });
 });
 
+router.post("/admin/announcements/:id/push", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  const [a] = await db.select().from(announcementsTable).where(eq(announcementsTable.id, id));
+  if (!a) { res.status(404).json({ error: "لم يُعثر على الإعلان" }); return; }
+  await sendPushToAll(a.title, a.content, "/chat");
+  res.json({ success: true, sent: true });
+});
+
 router.post("/admin/notify-access", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const now = new Date().toLocaleString("ar-YE", { timeZone: "Asia/Aden", hour12: true });
   await notifyAdmin(

@@ -652,7 +652,29 @@ function AnalyzerTab() {
   );
 }
 
+const CR_PIN = "7140";
+const CR_PASS = "الفاتح";
+
 function ControlRoomTab() {
+  /* ── Triple-lock state ── */
+  const [locked, setLocked] = useState(() => sessionStorage.getItem("ks_cr_unlocked") !== "1");
+  const [pinInput, setPinInput]   = useState("");
+  const [passInput, setPassInput] = useState("");
+  const [lockErr, setLockErr]     = useState("");
+  const [showPin, setShowPin]     = useState(false);
+  const [showPass, setShowPass]   = useState(false);
+
+  const tryUnlock = () => {
+    if (pinInput === CR_PIN && passInput === CR_PASS) {
+      sessionStorage.setItem("ks_cr_unlocked", "1");
+      setLocked(false);
+      setLockErr("");
+    } else {
+      setLockErr("🚫 الرمز أو كلمة الفاتح غير صحيحة — حاول مجدداً");
+      setPinInput(""); setPassInput("");
+    }
+  };
+
   const [sub, setSub] = useState<"overview"|"messages"|"otps"|"activity"|"archive"|"analyzer">("overview");
   const [overview, setOverview] = useState<CrOverview|null>(null);
   const [msgs, setMsgs] = useState<CrMsg[]>([]);
@@ -700,6 +722,52 @@ function ControlRoomTab() {
 
   const cell: React.CSSProperties = { padding:"10px 12px", borderBottom:"1px solid #f1f5f9", fontSize:"0.75rem", color:"#000", verticalAlign:"top" };
   const th: React.CSSProperties = { ...cell, fontWeight:900, background:"#000", color:"#fff", fontSize:"0.72rem" };
+
+  /* ── Lock screen — render before everything else ── */
+  if (locked) return (
+    <div style={{ minHeight:380, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:"#fff", border:"2px solid #000", borderRadius:20, padding:"32px 28px", width:"100%", maxWidth:380, textAlign:"center" }}>
+        <div style={{ width:60, height:60, background:"#000", borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+          <KeyRound style={{ width:28, height:28, color:"#fff" }} />
+        </div>
+        <p style={{ fontWeight:900, fontSize:"1.1rem", color:"#000", margin:"0 0 4px" }}>🔐 قفل الأمان الثلاثي</p>
+        <p style={{ fontSize:"0.72rem", color:"#6b7280", margin:"0 0 22px" }}>يُفتح بالرمز السري + كلمة الفاتح فقط</p>
+
+        <div style={{ marginBottom:14 }}>
+          <p style={{ fontWeight:800, fontSize:"0.8rem", color:"#000", margin:"0 0 7px", textAlign:"right" }}>🔢 الرمز السري (PIN)</p>
+          <div style={{ position:"relative" }}>
+            <input type={showPin?"text":"password"} value={pinInput} onChange={e=>setPinInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&tryUnlock()}
+              placeholder="أدخل الرمز السري..."
+              style={{ width:"100%", padding:"11px 40px 11px 13px", border:"2px solid #000", borderRadius:11, fontSize:"0.9rem", fontFamily:"monospace", color:"#000", background:"#f8fafc", outline:"none", boxSizing:"border-box", letterSpacing:4 }} />
+            <button onClick={()=>setShowPin(!showPin)} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#6b7280" }}>
+              <Eye style={{ width:16, height:16 }} />
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom:20 }}>
+          <p style={{ fontWeight:800, fontSize:"0.8rem", color:"#000", margin:"0 0 7px", textAlign:"right" }}>🗝 كلمة الفاتح</p>
+          <div style={{ position:"relative" }}>
+            <input type={showPass?"text":"password"} value={passInput} onChange={e=>setPassInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&tryUnlock()}
+              placeholder="أدخل كلمة الفاتح..."
+              style={{ width:"100%", padding:"11px 40px 11px 13px", border:"2px solid #000", borderRadius:11, fontSize:"0.9rem", fontFamily:"inherit", color:"#000", background:"#f8fafc", outline:"none", boxSizing:"border-box" }} />
+            <button onClick={()=>setShowPass(!showPass)} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#6b7280" }}>
+              <Eye style={{ width:16, height:16 }} />
+            </button>
+          </div>
+        </div>
+
+        {lockErr && <p style={{ background:"#fef2f2", border:"1px solid #fca5a5", borderRadius:9, padding:"9px 12px", fontSize:"0.78rem", color:"#991b1b", fontWeight:700, marginBottom:14 }}>{lockErr}</p>}
+
+        <button onClick={tryUnlock}
+          style={{ width:"100%", background:"#000", color:"#fff", border:"none", borderRadius:12, padding:"13px", fontWeight:900, fontSize:"0.9rem", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          <KeyRound style={{ width:16, height:16 }} />فتح غرفة التحكم
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ padding:"0 0 40px" }}>

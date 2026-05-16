@@ -1029,6 +1029,15 @@ export default function AdminPage() {
                       <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleToggleAnnouncement(a.id, a.isActive)}>
                         {a.isActive ? "إيقاف" : "تفعيل"}
                       </Button>
+                      <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700 text-white gap-1"
+                        title="إرسال إشعار فوري لكل المشتركين بهذا الإعلان"
+                        onClick={async () => {
+                          const r = await fetch(`/api/admin/announcements/${a.id}/push`, { method: "POST" });
+                          if (r.ok) alert(`✅ تم إرسال إشعار "${a.title}" لجميع المشتركين`);
+                          else alert("❌ فشل الإرسال أو لا يوجد مشتركون بعد");
+                        }}>
+                        <Send className="w-3 h-3" />📣
+                      </Button>
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive h-7 w-7 p-0" onClick={() => handleDeleteAnnouncement(a.id)}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>

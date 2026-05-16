@@ -109,6 +109,18 @@ export default function SocialContentPage() {
     }).catch(() => {});
   };
 
+  const getIntentLink = (platformId: string, text: string): string | null => {
+    const encoded = encodeURIComponent(text);
+    const siteUrl = encodeURIComponent("https://yemenchat.replit.app");
+    switch (platformId) {
+      case "whatsapp":  return `https://api.whatsapp.com/send?text=${encoded}`;
+      case "telegram":  return `https://t.me/share/url?url=${siteUrl}&text=${encoded}`;
+      case "twitter":   return `https://twitter.com/intent/tweet?text=${encoded}`;
+      case "facebook":  return `https://www.facebook.com/sharer/sharer.php?u=${siteUrl}&quote=${encoded}`;
+      default: return null;
+    }
+  };
+
   const plat = PLATFORMS.find(p => p.id === platform) ?? PLATFORMS[0]!;
 
   return (
@@ -293,10 +305,25 @@ export default function SocialContentPage() {
                         <span style={{ color: "#fff", fontWeight: 800, fontSize: "0.8rem" }}>منشور {pInfo.label}</span>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
+                        {(() => {
+                          const link = getIntentLink(post.platform, post.content);
+                          return link ? (
+                            <a href={link} target="_blank" rel="noopener noreferrer"
+                              style={{ background: "rgba(255,255,255,0.9)", border: "none", color: pInfo.color, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.68rem", fontWeight: 900, display: "flex", alignItems: "center", gap: 4, textDecoration: "none" }}>
+                              <Share2 style={{ width: 11, height: 11 }} />نشر
+                            </a>
+                          ) : (
+                            <button onClick={() => copy(post.content, post.id + 2000)}
+                              style={{ background: "rgba(255,255,255,0.9)", border: "none", color: pInfo.color, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.68rem", fontWeight: 900, display: "flex", alignItems: "center", gap: 4 }}
+                              title="انسخ ثم الصق في التطبيق يدوياً">
+                              <Copy style={{ width: 11, height: 11 }} />نسخ للنشر
+                            </button>
+                          );
+                        })()}
                         <button onClick={() => copy(post.content, post.id)}
                           style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.68rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                           {copiedId === post.id ? <CheckCheck style={{ width: 12, height: 12 }} /> : <Copy style={{ width: 12, height: 12 }} />}
-                          {copiedId === post.id ? "تم النسخ!" : "نسخ"}
+                          {copiedId === post.id ? "✓" : "نسخ"}
                         </button>
                         <button onClick={() => setExpandedId(isExpanded ? null : post.id)}
                           style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 7, padding: "5px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}>
