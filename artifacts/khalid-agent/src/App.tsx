@@ -37,6 +37,7 @@ const OwnerPortal = lazy(() => import("@/pages/owner-portal"));
 const DeepServicesPage = lazy(() => import("@/pages/deep-services"));
 const SocialContentPage = lazy(() => import("@/pages/social-content"));
 const CodeFixerPage = lazy(() => import("@/pages/code-fixer"));
+const MarketplacePage = lazy(() => import("@/pages/marketplace"));
 
 const SignInPage = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -317,6 +318,12 @@ function AppRouter() {
                 <Route path="/deep-services" component={() => (
                   <>
                     <Show when="signed-in"><DeepServicesPage /></Show>
+                    <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+                  </>
+                )} />
+                <Route path="/marketplace" component={() => (
+                  <>
+                    <Show when="signed-in"><MarketplacePage /></Show>
                     <Show when="signed-out"><Redirect to="/sign-in" /></Show>
                   </>
                 )} />

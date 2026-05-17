@@ -242,8 +242,9 @@ export default function Landing() {
               </div>
             ))}
           </div>
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center mt-6 gap-3 flex-wrap">
             <Link href="/services"><Button variant="outline" size="sm" className="border-border gap-1.5">{isRTL ? "كل الخدمات" : "All Services"}<ArrowLeft className={cn("w-4 h-4", !isRTL && "rotate-180")} /></Button></Link>
+            <Link href="/marketplace"><Button size="sm" className="gap-1.5 bg-black text-white hover:bg-gray-800">🏪 {isRTL ? "مجمع الخدمات والعمل الحر" : "Freelance Marketplace"}<ArrowLeft className={cn("w-4 h-4", !isRTL && "rotate-180")} /></Button></Link>
           </div>
         </div>
       </section>

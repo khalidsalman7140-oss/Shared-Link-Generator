@@ -924,6 +924,17 @@ export default function Chat() {
           {/* Plan / VIP badge + Tools shortcut */}
           <div className="mb-2 flex justify-between items-center gap-2">
             <div className="flex items-center gap-2">
+              <Link href="/marketplace">
+                <button className="text-[10px] bg-black text-white border border-black/20 rounded-full px-2.5 py-1 flex items-center gap-1 hover:bg-gray-800 transition-colors">
+                  🏪 {lang === "ar" ? "مجمع الخدمات" : "Marketplace"}
+                </button>
+              </Link>
+              <Link href="/deep-services">
+                <button className="text-[10px] bg-primary/10 text-primary border border-primary/30 rounded-full px-2.5 py-1 flex items-center gap-1 hover:bg-primary/20 transition-colors">
+                  <Zap className="w-2.5 h-2.5" />
+                  {lang === "ar" ? "الوكيل الذكي" : "AI Agent"}
+                </button>
+              </Link>
               {userPlan !== "free" && (
                 <Link href="/tools">
                   <button className="text-[10px] bg-primary/10 text-primary border border-primary/30 rounded-full px-2.5 py-1 flex items-center gap-1 hover:bg-primary/20 transition-colors">

@@ -18,6 +18,7 @@ import messagesRouter from "./messages/index.js";
 import deepServicesRouter from "./deep-services/index.js";
 import aiToolsRouter from "./ai-tools/index.js";
 import aiAgentRouter from "./ai-agent/index.js";
+import marketplaceRouter from "./marketplace/index.js";
 import otpRouter from "./otp.js";
 
 const router: IRouter = Router();
@@ -42,5 +43,6 @@ router.use(messagesRouter);
 router.use(deepServicesRouter);
 router.use(aiToolsRouter);
 router.use(aiAgentRouter);
+router.use(marketplaceRouter);
 
 export default router;

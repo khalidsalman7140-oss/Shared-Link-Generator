@@ -7,3 +7,4 @@ export * from "./apiKeys";
 export * from "./adminMessages";
 export * from "./deepServices";
 export * from "./userArtifacts";
+export * from "./marketplace";
